@@ -1,7 +1,9 @@
 (function() {
-    const TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
-    const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-    const MAIN_URL = "https://new5.hdhub4u.fo";
+    const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
+    const TMDB_API_URL = "https://wild-surf-4a0d.phisher1.workers.dev";
+    const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
+    const runtimeManifest = (typeof manifest !== "undefined" && manifest) ? manifest : {};
+    const MAIN_URL = String(runtimeManifest.baseUrl || "https://new7.hdhub4u.fo").replace(/\/+$/, "");
     
     const HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
@@ -33,14 +35,88 @@
         return [...new Set(filtered)].join(" ");
     }
 
+    function safeJsonParse(value, fallback = null) {
+        if (value && typeof value === "object") return value;
+        try {
+            return JSON.parse(String(value || ""));
+        } catch (_) {
+            return fallback;
+        }
+    }
+
+    async function fetchJson(url, headers = {}, fallback = {}) {
+        try {
+            const response = await http_get(url, { headers: headers });
+            return safeJsonParse(response.body, fallback);
+        } catch (_) {
+            return fallback;
+        }
+    }
+
+    function tmdbApi(path, query = "") {
+        const cleanPath = String(path || "").replace(/^\/+/, "");
+        const prefix = `${TMDB_API_URL}/${cleanPath}?api_key=${TMDB_API_KEY}`;
+        return query ? `${prefix}&${query}` : prefix;
+    }
+
+    function inferIsSeries(title, url, categories) {
+        const combined = `${title || ""} ${categories || ""} ${url || ""}`.toLowerCase();
+        return /all-episodes|web[- ]series|tv[- ]series|season\s*\d+|\/season-|\/all-episodes|\/series\//i.test(combined);
+    }
+
+    function normalizeSiteUrl(url) {
+        const value = String(url || "");
+        if (!value) return value;
+        try {
+            const parsed = new URL(value, MAIN_URL);
+            if (/hdhub4u\./i.test(parsed.hostname) && !parsed.href.startsWith(MAIN_URL)) {
+                return `${MAIN_URL}${parsed.pathname}${parsed.search}${parsed.hash}`;
+            }
+            return parsed.href;
+        } catch (_) {
+            return value;
+        }
+    }
+
+    async function withTimeout(promise, ms, fallback) {
+        let timer = null;
+        try {
+            return await Promise.race([
+                promise,
+                new Promise(resolve => {
+                    timer = setTimeout(() => resolve(fallback), ms);
+                })
+            ]);
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
+    }
+
+    async function mapLimit(items, limit, worker) {
+        const list = Array.isArray(items) ? items : [];
+        const max = Math.max(1, Number(limit || 1));
+        const results = new Array(list.length);
+        let index = 0;
+        async function run() {
+            while (index < list.length) {
+                const current = index++;
+                try {
+                    results[current] = await worker(list[current], current);
+                } catch (_) {
+                    results[current] = [];
+                }
+            }
+        }
+        await Promise.all(Array.from({ length: Math.min(max, list.length) }, run));
+        return results;
+    }
+
     async function search(query, cb) {
         try {
             const today = (new Date()).toISOString().split("T")[0];
             const searchUrl = `https://search.pingora.fyi/collections/post/documents/search?q=${encodeURIComponent(query)}&query_by=post_title,category&query_by_weights=4,2&sort_by=sort_by_date:desc&limit=15&highlight_fields=none&use_cache=true&page=1&analytics_tag=${today}`;
 
-            const response = await http_get(searchUrl, HEADERS);
-            
-            const data = JSON.parse(response.body);
+            const data = await fetchJson(searchUrl, HEADERS, {});
 
             if (!data || !data.hits) {
                 return cb({ success: true, data: [] });
@@ -58,17 +134,18 @@
                 } else if (url && !url.startsWith("http")) {
                     url = `${MAIN_URL}/${url}`;
                 }
+                url = normalizeSiteUrl(url);
                 
                 const categories = Array.isArray(doc.category) ? doc.category.join(" ") : (doc.category || "");
-                const isMovie = categories.toLowerCase().includes("movie");
+                const isSeries = inferIsSeries(title, url, categories);
 
                 return new MultimediaItem({
                     title: title.replace(/\|.*$/, "").trim(),
                     url: url,
                     posterUrl: doc.post_thumbnail,
                     year: year,
-                    type: isMovie ? "movie" : "series",
-                    contentType: isMovie ? "movie" : "series"
+                    type: isSeries ? "series" : "movie",
+                    contentType: isSeries ? "series" : "movie"
                 });
             }).filter(Boolean);
 
@@ -90,23 +167,22 @@
                 { name: "Adult", path: "/category/adult/" }
             ];
 
-            const homeData = {};
-            for (const section of sections) {
+            const homeEntries = await Promise.all(sections.map(async (section) => {
                 try {
                     const url = section.path ? `${MAIN_URL}${section.path}` : MAIN_URL;
                     const res = await http_get(url, { headers: HEADERS });
                     const doc = await parseHtml(res.body);
-                    
+
                     const items = Array.from(doc.querySelectorAll('.recent-movies > li.thumb')).map(el => {
                         const a = el.querySelector('figcaption a');
                         if (!a) return null;
                         const titleText = a.textContent.trim();
                         let href = el.querySelector('figure a')?.getAttribute('href');
                         if (href && href.startsWith("/")) href = `${MAIN_URL}${href}`;
+                        href = normalizeSiteUrl(href);
                         const poster = el.querySelector('figure img')?.getAttribute('src');
-                        
-                        const isSeries = href?.includes("/series/") || titleText.toLowerCase().includes("season") || titleText.toLowerCase().includes("web series");
-                        
+                        const isSeries = inferIsSeries(titleText, href, section.name);
+
                         return new MultimediaItem({
                             title: titleText.replace(/\|.*$/, "").trim(),
                             url: href,
@@ -115,13 +191,15 @@
                             contentType: isSeries ? "series" : "movie"
                         });
                     }).filter(Boolean);
-                    
-                    homeData[section.name] = items;
+
+                    return [section.name, items];
                 } catch (err) {
                     console.error(`Error loading section ${section.name}:`, err);
-                    homeData[section.name] = [];
+                    return [section.name, []];
                 }
-            }
+            }));
+
+            const homeData = Object.fromEntries(homeEntries);
 
             cb({ success: true, data: homeData });
         } catch (e) {
@@ -131,9 +209,8 @@
 
     async function getTMDBDetails(tmdbId, mediaType) {
         const endpoint = mediaType === "tv" ? "tv" : "movie";
-        const url = `${TMDB_BASE_URL}/${endpoint}/${tmdbId}?api_key=${TMDB_API_KEY}&append_to_response=external_ids,credits`;
-        const response = await http_get(url, { headers: { "Accept": "application/json" } });
-        const data = JSON.parse(response.body);
+        const url = tmdbApi(`${endpoint}/${tmdbId}`, "append_to_response=external_ids,credits");
+        const data = await fetchJson(url, { "Accept": "application/json" }, {});
         
         const actors = (data.credits?.cast || []).slice(0, 15).map(c => new Actor({
             name: c.name,
@@ -145,8 +222,8 @@
             title: mediaType === "tv" ? data.name : data.title,
             year: (mediaType === "tv" ? data.first_air_date : data.release_date)?.split("-")[0],
             description: data.overview,
-            poster: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
-            backdrop: data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : null,
+            poster: data.poster_path ? `${TMDB_IMAGE_BASE}/w500${data.poster_path}` : null,
+            backdrop: data.backdrop_path ? `${TMDB_IMAGE_BASE}/original${data.backdrop_path}` : null,
             genres: data.genres ? data.genres.map(g => g.name) : [],
             rating: data.vote_average,
             imdbId: data.external_ids?.imdb_id,
@@ -156,20 +233,73 @@
 
     async function getTMDBSeasonEpisodes(tmdbId, seasonNumber) {
         try {
-            const url = `${TMDB_BASE_URL}/tv/${tmdbId}/season/${seasonNumber}?api_key=${TMDB_API_KEY}`;
-            const response = await http_get(url, { headers: { "Accept": "application/json" } });
-            const data = JSON.parse(response.body);
+            const url = tmdbApi(`tv/${tmdbId}/season/${seasonNumber}`);
+            const data = await fetchJson(url, { "Accept": "application/json" }, {});
             return (data.episodes || []).reduce((acc, ep) => {
                 acc[ep.episode_number] = {
                     name: ep.name,
                     description: ep.overview,
-                    posterUrl: ep.still_path ? `https://image.tmdb.org/t/p/w500${ep.still_path}` : null
+                    posterUrl: ep.still_path ? `${TMDB_IMAGE_BASE}/w500${ep.still_path}` : null
                 };
                 return acc;
             }, {});
         } catch (e) {
             return {};
         }
+    }
+
+    function extractYearFromTitle(title) {
+        const match = (title || "").match(/\b(19|20)\d{2}\b/);
+        return match ? parseInt(match[0], 10) : null;
+    }
+
+    function normalizeLookupTitle(title, isMovie) {
+        let clean = cleanTitle(title || "");
+        clean = clean.replace(/\|.*$/, "");
+        clean = clean.replace(/\[[^\]]*]/g, " ");
+        clean = clean.replace(/\((?:Season|S)\s*\d+[^)]*\)/gi, " ");
+        clean = clean.replace(/\b(?:Season|S)\s*\d+\b/gi, " ");
+        clean = clean.replace(/\b(?:EP|Episode)\s*\d+\b/gi, " ");
+        clean = clean.replace(/\b(?:WEB[- ]DL|WEB[- ]RIP|HDRIP|BLURAY|HDTC|HQ[- ]HDTC|DS4K|4K|2160p|1080p|720p|480p|10Bit|HEVC|x264|x265|Dual Audio|Multi Audio|Hindi|English|Tamil|Telugu|Korean|Japanese|Spanish|PrimeVideo|Series|Movie|ALL Episodes|EP-\d+ Added)\b/gi, " ");
+        if (!isMovie) {
+            clean = clean.replace(/\b(?:Added|Episodes?)\b/gi, " ");
+        }
+        clean = clean.replace(/&/g, " ");
+        clean = clean.replace(/[()[\]{}|,:;+/_-]+/g, " ");
+        clean = clean.replace(/\b(?:and|org|dd(?:5\.1|2\.0)?)\b/gi, " ");
+        return clean.replace(/\s+/g, " ").trim();
+    }
+
+    async function searchTMDBIdByTitle(title, isMovie, year) {
+        const query = normalizeLookupTitle(title, isMovie);
+        if (!query) return null;
+
+        const endpoint = isMovie ? "movie" : "tv";
+        const params = [`api_key=${TMDB_API_KEY}`, `query=${encodeURIComponent(query)}`];
+        if (year) {
+            params.push(isMovie ? `year=${year}` : `first_air_date_year=${year}`);
+        }
+
+        const url = tmdbApi(`search/${endpoint}`, params.join("&"));
+        const data = await fetchJson(url, { "Accept": "application/json" }, {});
+        const results = Array.isArray(data.results) ? data.results : [];
+        if (!results.length) return null;
+
+        const queryLc = query.toLowerCase();
+        const scored = results.map(result => {
+            const titleText = cleanTitle(isMovie ? result.title : result.name).toLowerCase();
+            let score = 0;
+            if (titleText === queryLc) score += 100;
+            else if (titleText.includes(queryLc) || queryLc.includes(titleText)) score += 60;
+            if (year) {
+                const resultYear = parseInt(((isMovie ? result.release_date : result.first_air_date) || "").split("-")[0], 10);
+                if (resultYear === year) score += 30;
+            }
+            score += result.popularity || 0;
+            return { id: result.id, score };
+        }).sort((a, b) => b.score - a.score);
+
+        return scored[0]?.id || null;
     }
 
     async function load(url, cb) {
@@ -186,6 +316,7 @@
             
             const seasonMatch = rawTitle.match(/(?:Season|S)\s*(\d+)/i);
             const seasonNumber = seasonMatch ? parseInt(seasonMatch[1]) : 1;
+            const titleYear = extractYearFromTitle(rawTitle);
 
             // Metadata Enrichment
             let tmdbData = null;
@@ -199,9 +330,8 @@
             } else if (imdbLink) {
                 const imdbId = imdbLink.split('/title/')[1]?.split('/')[0];
                 if (imdbId) {
-                    const findUrl = `${TMDB_BASE_URL}/find/${imdbId}?api_key=${TMDB_API_KEY}&external_source=imdb_id`;
-                    const findRes = await http_get(findUrl, { headers: { "Accept": "application/json" } });
-                    const findData = JSON.parse(findRes.body);
+                    const findUrl = tmdbApi(`find/${imdbId}`, "external_source=imdb_id");
+                    const findData = await fetchJson(findUrl, { "Accept": "application/json" }, {});
                     tmdbId = isMovie ? findData.movie_results?.[0]?.id : findData.tv_results?.[0]?.id;
                 }
             }
@@ -210,6 +340,14 @@
                 tmdbData = await getTMDBDetails(tmdbId, isMovie ? "movie" : "tv");
                 if (!isMovie) {
                     tmdbSeasonEpisodes = await getTMDBSeasonEpisodes(tmdbId, seasonNumber);
+                }
+            } else {
+                tmdbId = await searchTMDBIdByTitle(rawTitle, isMovie, titleYear);
+                if (tmdbId) {
+                    tmdbData = await getTMDBDetails(tmdbId, isMovie ? "movie" : "tv");
+                    if (!isMovie) {
+                        tmdbSeasonEpisodes = await getTMDBSeasonEpisodes(tmdbId, seasonNumber);
+                    }
                 }
             }
 
@@ -237,7 +375,7 @@
                 const links = Array.from(content.querySelectorAll('a'))
                     .map(a => ({
                         text: a.textContent.trim(),
-                        href: a.getAttribute('href')
+                        href: normalizeSiteUrl(a.getAttribute('href'))
                     }))
                     .filter(l => l.href && (l.href.includes("hdstream4u") || l.href.includes("hubstream") || l.text.match(/480|720|1080|2160|4k/i)) && !l.href.includes(MAIN_URL));
                 
@@ -266,7 +404,7 @@
                     }
 
                     if (currentEpNum) {
-                        const elLinks = Array.from(el.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(Boolean);
+                        const elLinks = Array.from(el.querySelectorAll('a')).map(a => normalizeSiteUrl(a.getAttribute('href'))).filter(Boolean);
                         for (const link of elLinks) {
                             if (!link.includes(MAIN_URL) && !episodesMap[currentEpNum].includes(link)) {
                                 episodesMap[currentEpNum].push(link);
@@ -282,16 +420,16 @@
                         const combinedText = aText + " " + pText;
                         
                         if (combinedText.match(/480|720|1080|2160|4k/i) && (combinedText.includes("download") || combinedText.includes("zip") || combinedText.includes("pack"))) {
-                            const link = a.getAttribute('href');
+                            const link = normalizeSiteUrl(a.getAttribute('href'));
                             if (link && !link.includes(MAIN_URL)) {
                                 try {
-                                    const resolvedUrl = await getRedirectLinks(link);
+                                    const resolvedUrl = await withTimeout(getRedirectLinks(link), 8000, null);
                                     if (resolvedUrl) {
                                         const epRes = await http_get(resolvedUrl, { headers: HEADERS });
                                         const epDoc = await parseHtml(epRes.body);
                                         epDoc.querySelectorAll('h5 a, p a, a').forEach(aElement => {
                                             const epText = aElement.textContent;
-                                            const epLink = aElement.getAttribute('href');
+                                            const epLink = normalizeSiteUrl(aElement.getAttribute('href'));
                                             const epNumMatch = epText.match(/(?:Episode|E|Ep|EPiSODE)\s*(\d+)/i);
                                             if (epNumMatch && epLink) {
                                                 const epNum = parseInt(epNumMatch[1]);
@@ -315,7 +453,7 @@
                             const t = (a.textContent + " " + (a.parentElement?.textContent || "")).toLowerCase();
                             return t.match(/480|720|1080|2160|4k/i) && !a.getAttribute('href')?.includes(MAIN_URL);
                         })
-                        .map(a => a.getAttribute('href'))
+                        .map(a => normalizeSiteUrl(a.getAttribute('href')))
                         .filter(Boolean);
                     
                     if (fallbackLinks.length > 0) {
@@ -498,18 +636,22 @@
             const labelExtras = (headerDetails ? `[${headerDetails}]` : "") + (size ? `[${size}]` : "");
 
             const links = [];
-            const elements = $.querySelectorAll("a.btn");
+            const elements = Array.from($.querySelectorAll("a.btn, a.btn-lg, a.btn-primary, a.btn-success, a.btn-danger"));
             console.log("HDHub4U: HubCloud found " + elements.length + " buttons");
             for (const element of elements) {
                 const link = element.getAttribute("href");
                 const text = element.textContent.toLowerCase();
-                
-                if (text.includes("download file") || text.includes("fsl server") || text.includes("s3 server") || text.includes("fslv2") || text.includes("mega server")) {
+                if (!link || /telegram|facebook|twitter|tinyurl|tutorial/i.test(link + " " + text)) {
+                    continue;
+                }
+
+                if (text.includes("download file") || text.includes("fsl server") || text.includes("s3 server") || text.includes("fslv2") || text.includes("mega server") || text.includes("zipdisk")) {
                     let label = "HubCloud";
                     if (text.includes("fsl server")) label = "HubCloud [FSL]";
                     else if (text.includes("s3 server")) label = "HubCloud [S3]";
                     else if (text.includes("fslv2")) label = "HubCloud [FSLv2]";
                     else if (text.includes("mega server")) label = "HubCloud [Mega]";
+                    else if (text.includes("zipdisk")) label = "HubCloud [ZipDisk]";
                     
                     links.push(new StreamResult({
                         source: label,
@@ -519,39 +661,26 @@
                         size: size
                     }));
                 } else if (text.includes("buzzserver")) {
-                    try {
-                        console.log("HDHub4U: HubCloud BuzzServer: " + link);
-                        const buzzResp = await http_get(`${link}/download`, { headers: { ...HEADERS, "Referer": link } });
-                        let dlink = buzzResp.headers["hx-redirect"] || buzzResp.headers["HX-Redirect"];
-                        if (dlink) {
-                            links.push(new StreamResult({
-                                source: "BuzzServer",
-                                name: `BuzzServer ${labelExtras}`,
-                                url: dlink,
-                                quality: qualityStr || "1080p",
-                                size: size
-                            }));
-                        }
-                    } catch (e) {}
+                    links.push(new StreamResult({
+                        source: "BuzzServer",
+                        name: `BuzzServer ${labelExtras}`,
+                        url: link,
+                        quality: qualityStr || "1080p",
+                        size: size
+                    }));
                 } else if (text.includes("10gbps")) {
-                    try {
-                        console.log("HDHub4U: HubCloud 10Gbps: " + link);
-                        const resp = await http_get(link, { headers: HEADERS });
-                        const loc = resp.headers["location"];
-                        if (loc && loc.includes("link=")) {
-                            const dlink = loc.substring(loc.indexOf("link=") + 5);
-                            links.push(new StreamResult({
-                                source: "10Gbps",
-                                name: `10Gbps ${labelExtras}`,
-                                url: dlink,
-                                quality: qualityStr || "1080p",
-                                size: size
-                            }));
-                        }
-                    } catch (e) {}
+                    console.log("HDHub4U: HubCloud 10Gbps: " + link);
+                    links.push(new StreamResult({
+                        source: "10Gbps",
+                        name: `10Gbps ${labelExtras}`,
+                        url: link,
+                        quality: qualityStr || "1080p",
+                        size: size
+                    }));
                 } else if (link && link.includes("pixeldra")) {
                     links.push(new StreamResult({
-                        name: "PixelDrain",
+                        source: "PixelDrain",
+                        name: `PixelDrain ${labelExtras}`,
                         url: link.includes("?download") ? link : `https://pixeldrain.com/api/file/${link.split('/').pop()}?download`,
                         quality: qualityStr || "1080p",
                         size: size
@@ -583,8 +712,14 @@
                 if (scriptEncoded) encoded = scriptEncoded.split("?r=").pop();
             }
             if (encoded) {
-                const m3u8Link = atob(encoded).substring(atob(encoded).lastIndexOf("link=") + 5);
-                return [new StreamResult({ source: "HubCdn", url: m3u8Link, quality: "1080p" })];
+                const decoded = atob(encoded);
+                const rawLink = decoded.includes("link=")
+                    ? decoded.substring(decoded.lastIndexOf("link=") + 5)
+                    : decoded;
+                const m3u8Link = rawLink.trim();
+                if (/^https?:\/\//i.test(m3u8Link)) {
+                    return [new StreamResult({ source: "HubCdn", url: m3u8Link, quality: "1080p" })];
+                }
             }
             return [];
         } catch (e) {
@@ -596,10 +731,12 @@
         try {
             const res = await http_get(url, { headers: { ...HEADERS, "Referer": referer } });
             const doc = await parseHtml(res.body);
-            const href = doc.querySelector(".btn.btn-primary.btn-user.btn-success1.m-1")?.getAttribute("href");
+            const anchors = Array.from(doc.querySelectorAll("a")).map(a => a.getAttribute("href")).filter(Boolean);
+            const href = anchors.find(h => /hubcloud|hubcdn|hubdrive|pixeldrain|streamtape|hdstream4u|hubstream/i.test(h));
             if (href) {
-                if (href.includes("hubcloud")) return await hubCloudExtractor(href, url);
-                return await internalLoadExtractor(href, url);
+                const finalHref = normalizeSiteUrl(href);
+                if (finalHref.includes("hubcloud")) return await hubCloudExtractor(finalHref, url);
+                return await internalLoadExtractor(finalHref, url);
             }
             return [];
         } catch (e) {
@@ -611,16 +748,76 @@
         try {
             const res = await http_get(url, { headers: { ...HEADERS, "Referer": url } });
             const doc = await parseHtml(res.body);
-            const links = Array.from(doc.querySelectorAll("h3 a, h5 a, div.entry-content p a"))
-                .map(a => a.getAttribute("href"))
-                .filter(Boolean);
-            
-            const results = [];
-            for (const l of links) {
-                const streams = await internalLoadExtractor(l, url);
-                results.push(...streams);
+            const contentRoot = doc.querySelector(".entry-content") || doc;
+            const headingNodes = Array.from(contentRoot.querySelectorAll("h3, h5"));
+            const candidateLinks = [];
+
+            for (const heading of headingNodes) {
+                const headingText = cleanTitle(heading.textContent || "").replace(/\s+/g, " ").trim();
+                const qualityMatch = headingText.match(/(4K|2160p|1080p|720p|480p|360p)/i);
+                const quality = qualityMatch ? qualityMatch[1] : "";
+                const headingAnchors = Array.from(heading.querySelectorAll("a"))
+                    .map(a => ({
+                        href: normalizeSiteUrl(a.getAttribute("href")),
+                        text: cleanTitle(a.textContent || "").trim()
+                    }))
+                    .filter(a => a.href);
+
+                if (!headingAnchors.length) continue;
+
+                const directAnchors = headingAnchors.filter(a => a.href.includes("hubcloud"));
+                const instantAnchors = headingAnchors.filter(a => a.href.includes("hubcdn"));
+                const watchAnchors = headingAnchors.filter(a => a.href.includes("hdstream4u") || a.href.includes("hubstream"));
+                const fallbackAnchors = headingAnchors.filter(a => !a.href.includes("hubdrive"));
+
+                const preferredAnchors = directAnchors.length
+                    ? directAnchors
+                    : instantAnchors.length
+                        ? instantAnchors
+                        : watchAnchors.length
+                            ? watchAnchors
+                            : fallbackAnchors;
+
+                for (const anchor of preferredAnchors) {
+                    candidateLinks.push({
+                        href: anchor.href,
+                        quality,
+                        label: headingText || anchor.text || "Download"
+                    });
+                }
             }
-            return results;
+
+            const fallbackLinks = candidateLinks.length ? [] : Array.from(doc.querySelectorAll("h3 a, h5 a, div.entry-content p a"))
+                .map(a => ({
+                    href: normalizeSiteUrl(a.getAttribute("href")),
+                    quality: "",
+                    label: cleanTitle(a.textContent || "").trim()
+                }))
+                .filter(a => a.href && !a.href.includes("hubdrive"));
+
+            const links = (candidateLinks.length ? candidateLinks : fallbackLinks).filter(item => item.href);
+            const uniqueLinks = [];
+            const seenLinks = new Set();
+            for (const item of links) {
+                if (seenLinks.has(item.href)) continue;
+                seenLinks.add(item.href);
+                uniqueLinks.push(item);
+            }
+
+            const results = await mapLimit(uniqueLinks, 2, async (item) => {
+                const extracted = await withTimeout(internalLoadExtractor(item.href, url), 10000, []);
+                return extracted.map(stream => {
+                    if (item.quality && (!stream.quality || stream.quality === "Unknown")) {
+                        stream.quality = item.quality;
+                    }
+                    if (item.label && stream.source && !stream.source.includes(item.quality || "")) {
+                        const qualityPart = item.quality ? ` - ${item.quality}` : "";
+                        stream.source = `${stream.source}${qualityPart}`;
+                    }
+                    return stream;
+                });
+            });
+            return results.flat();
         } catch (e) {
             return [];
         }
@@ -692,7 +889,7 @@
                 const res = await getRedirectLinks(url);
                 if (res) {
                     // Strip leading ? or & if present (sometimes atob returns it)
-                    let cleanRes = res.trim();
+                    let cleanRes = normalizeSiteUrl(res.trim());
                     if (cleanRes.startsWith("?") || cleanRes.startsWith("&")) {
                         cleanRes = cleanRes.substring(1);
                     }
@@ -769,14 +966,13 @@
                 }
             }
             
-            for (const lObj of uniqueLinks) {
+            const extractedGroups = await mapLimit(uniqueLinks, 2, async (lObj) => {
                 try {
-                    const lUrl = lObj.url;
+                    const lUrl = normalizeSiteUrl(lObj.url);
                     const lName = lObj.name || "";
                     console.log("HDHub4U: Extracting from: " + lUrl + " (name: " + lName + ")");
-                    const streams = await internalLoadExtractor(lUrl);
+                    const streams = await withTimeout(internalLoadExtractor(lUrl), 10000, []);
 
-                    // Apply quality formatting based on original link name
                     streams.forEach(s => {
                         let finalQuality = s.quality && s.quality !== "Unknown" ? s.quality : "";
 
@@ -797,12 +993,16 @@
                         }
 
                         s.source = sourceLabel;
-                        allResults.push(s);
                     });
+
+                    return streams;
                 } catch (e) {
                     console.error("HDHub4U: Extraction error for " + lObj.url + ": " + e.message);
+                    return [];
                 }
-            }
+            });
+
+            allResults.push(...extractedGroups.flat());
 
             // Deduplicate final results by URL
             const seen = new Set();
