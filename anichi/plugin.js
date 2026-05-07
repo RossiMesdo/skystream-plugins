@@ -89,6 +89,11 @@
         );
     }
 
+    function preferredTitle(edge) {
+        if (!edge) return "Unknown";
+        return edge.englishName || edge.name || edge.nativeName || "Unknown";
+    }
+
     function toMultimediaItem(edge) {
         if (!edge) return null;
         const posterUrl = edge.thumbnail?.startsWith("http") 
@@ -96,7 +101,7 @@
             : edge.thumbnail ? `https://wp.youtube-anime.com/aln.youtube-anime.com/${edge.thumbnail}` : null;
 
         return new MultimediaItem({
-            title: edge.name || edge.englishName || edge.nativeName || "Unknown",
+            title: preferredTitle(edge),
             url: edge._id || edge.showId, 
             posterUrl: posterUrl,
             type: edge.type?.toLowerCase().includes("movie") ? "movie" : "anime",
@@ -120,7 +125,7 @@
                 "New Series": { search: { season, year }, translationType: transType, countryOrigin: "ALL" },
                 "Latest Anime": { search: {}, translationType: transType, countryOrigin: "ALL" },
                 "Latest Donghua": { search: {}, translationType: transType, countryOrigin: "CN" },
-                "Movies": { search: { types: ["Movie"] }, translationType: transType, countryOrigin: "ALL" }
+                "Movie": { search: { types: ["Movie"] }, translationType: transType, countryOrigin: "ALL" }
             };
 
             const homeData = {};
@@ -148,7 +153,7 @@
                 .map(function (r) { return toMultimediaItem(r.anyCard); })
                 .filter(Boolean)
                 .filter(hasEpisodes);
-            if (popularItems.length > 0) homeData["Trending"] = popularItems;
+            if (popularItems.length > 0) homeData["Popular"] = popularItems;
 
             if (!Object.keys(homeData).length) {
                 return cb({ success: false, errorCode: "HOME_ERROR", message: "No home sections available" });
@@ -263,7 +268,7 @@
             const show = res.data?.show;
             if (!show) return cb({ success: false, message: "Show not found" });
 
-            const title = show.name;
+            const title = show.name || show.englishName || show.nativeName;
             const year = show.airedStart?.year;
             const season = show.season?.quarter;
             const type = show.type;
@@ -277,6 +282,7 @@
 
             const tmdbId = aniZip?.mappings?.themoviedb_id;
             const logoUrl = await getTmdbLogo(tmdbId, show.type?.toLowerCase().includes("movie") ? "movie" : "tv");
+            const resolvedTitle = aniZip?.titles?.en || show.englishName || aniMedia?.title?.english || title || preferredTitle(show);
 
             const episodes = (show.availableEpisodesDetail?.sub || []).map(epNum => {
                 const aniEp = aniZip?.episodes?.[epNum];
@@ -314,7 +320,7 @@
             const recommendations = metaShows.map(toMultimediaItem).filter(function (item) { return item; });
 
             const result = new MultimediaItem({
-                title: title,
+                title: resolvedTitle,
                 url: url,
                 posterUrl: toMultimediaItem(show).posterUrl,
                 bannerUrl: aniMedia?.bannerImage || show.banner,
@@ -401,11 +407,28 @@
 
     function buildSubtitleList(subtitles) {
         return (subtitles || []).map(function (sub) {
+            const url = sub.src || sub.url;
             return {
                 name: sub.lang || sub.label || "Unknown",
-                url: sub.src || sub.url
+                url: url && url.startsWith("//") ? ("https:" + url) : url
             };
         }).filter(function (item) { return item.url; });
+    }
+
+    function mergeSubtitleLists() {
+        const merged = [];
+        const seen = new Set();
+        for (let i = 0; i < arguments.length; i += 1) {
+            const list = arguments[i] || [];
+            list.forEach(function (item) {
+                if (!item || !item.url) return;
+                const key = `${item.name || ""}|${item.url}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                merged.push(item);
+            });
+        }
+        return merged;
     }
 
     function decodeEscapedString(value) {
@@ -421,9 +444,7 @@
         const text = String(html || "");
         const results = [];
         const patterns = [
-            /https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/gi,
-            /https?:\/\/[^"'\\\s]+\.mp4[^"'\\\s]*/gi,
-            /https?:\/\/[^"'\\\s]+\.mpd[^"'\\\s]*/gi
+            /https?:\/\/[^"'\\\s]+\.(?:m3u8|mp4|mpd)(?:$|[?#/][^"'\\\s]*)/gi
         ];
         patterns.forEach(function (pattern) {
             let match;
@@ -463,6 +484,408 @@
             } catch (_) {}
         }
         return url;
+    }
+
+    function isBuiltinExtractorHost(url) {
+        return /dood|filemoon|hubcloud|mixdrop|streamtape|voe/i.test(String(url || ""));
+    }
+
+    async function tryBuiltinExtractor(url, sourceName, subtitles, streamResults) {
+        if (!url || !isBuiltinExtractorHost(url) || typeof globalThis.loadExtractor !== "function") return false;
+        const before = streamResults.length;
+        try {
+            await globalThis.loadExtractor(url, function (stream) {
+                streamResults.push(attachSubtitles(stream, subtitles));
+            });
+        } catch (_) {
+            return false;
+        }
+        if (streamResults.length > before) {
+            for (let i = before; i < streamResults.length; i += 1) {
+                if (!streamResults[i].source && sourceName) {
+                    streamResults[i].source = `AllAnime - ${sourceName}`;
+                }
+            }
+        }
+        return streamResults.length > before;
+    }
+
+    function resolveUrl(baseUrl, nextUrl) {
+        try {
+            return new URL(nextUrl, baseUrl).toString();
+        } catch (_) {
+            return nextUrl;
+        }
+    }
+
+    function getBaseUrl(url) {
+        try {
+            const parsed = new URL(url);
+            return `${parsed.protocol}//${parsed.host}`;
+        } catch (_) {
+            return "";
+        }
+    }
+
+    function getCodeFromUrl(url) {
+        try {
+            const parsed = new URL(url);
+            const path = parsed.pathname || "";
+            return path.replace(/\/+$/, "").split("/").pop() || "";
+        } catch (_) {
+            return "";
+        }
+    }
+
+    function binaryToBytes(binary) {
+        const out = new Uint8Array(String(binary || "").length);
+        for (let i = 0; i < out.length; i += 1) out[i] = binary.charCodeAt(i) & 255;
+        return out;
+    }
+
+    function getNodeCrypto() {
+        try {
+            if (typeof require === "function") return require("crypto");
+        } catch (_) {}
+        return null;
+    }
+
+    function hexToBytes(hex) {
+        const clean = String(hex || "").replace(/[^a-fA-F0-9]/g, "");
+        const out = new Uint8Array(Math.floor(clean.length / 2));
+        for (let i = 0; i < out.length; i += 1) {
+            out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16) & 255;
+        }
+        return out;
+    }
+
+    function bytesToUtf8(bytes) {
+        const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+        if (typeof TextDecoder !== "undefined") return new TextDecoder().decode(view);
+        let out = "";
+        for (let i = 0; i < view.length; i += 1) out += String.fromCharCode(view[i]);
+        try { return decodeURIComponent(escape(out)); } catch (_) { return out; }
+    }
+
+    function base64UrlDecodeToBytes(text) {
+        const fixed = String(text || "").replace(/-/g, "+").replace(/_/g, "/");
+        const pad = (4 - (fixed.length % 4)) % 4;
+        return binaryToBytes(atob(fixed + "=".repeat(pad)));
+    }
+
+    function concatBytes(parts) {
+        let total = 0;
+        for (let i = 0; i < parts.length; i += 1) total += (parts[i] || []).length || 0;
+        const out = new Uint8Array(total);
+        let offset = 0;
+        for (let i = 0; i < parts.length; i += 1) {
+            const value = parts[i] instanceof Uint8Array ? parts[i] : new Uint8Array(parts[i] || []);
+            out.set(value, offset);
+            offset += value.length;
+        }
+        return out;
+    }
+
+    async function decryptAesCbcHex(cipherHex, keyText, ivText) {
+        const cipherBytes = hexToBytes(cipherHex);
+        const keyBytes = binaryToBytes(String(keyText || ""));
+        const ivBytes = binaryToBytes(String(ivText || ""));
+        if (globalThis.crypto && typeof globalThis.crypto.decryptAES === "function" && typeof btoa === "function") {
+            try {
+                const viaBridge = await globalThis.crypto.decryptAES(cipherHex, btoa(String(keyText || "")), btoa(String(ivText || "")));
+                if (viaBridge) return String(viaBridge).replace(/[\u0000-\u001f]+$/g, "");
+            } catch (_) {}
+        }
+        if (globalThis.crypto && globalThis.crypto.subtle && typeof globalThis.crypto.subtle.importKey === "function") {
+            const imported = await globalThis.crypto.subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["decrypt"]);
+            const plain = await globalThis.crypto.subtle.decrypt({ name: "AES-CBC", iv: ivBytes }, imported, cipherBytes);
+            return bytesToUtf8(new Uint8Array(plain)).replace(/[\u0000-\u001f]+$/g, "");
+        }
+        const nodeCrypto = getNodeCrypto();
+        if (nodeCrypto && typeof nodeCrypto.createDecipheriv === "function" && typeof Buffer !== "undefined") {
+            const decipher = nodeCrypto.createDecipheriv("aes-128-cbc", Buffer.from(keyBytes), Buffer.from(ivBytes));
+            let out = decipher.update(Buffer.from(cipherBytes));
+            out = Buffer.concat([out, decipher.final()]);
+            return out.toString("utf8").replace(/[\u0000-\u001f]+$/g, "");
+        }
+        throw new Error("AES-CBC unavailable");
+    }
+
+    async function decryptAesGcm(cipherBytes, keyBytes, ivBytes) {
+        if (globalThis.crypto && globalThis.crypto.subtle && typeof globalThis.crypto.subtle.importKey === "function") {
+            const imported = await globalThis.crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+            const plain = await globalThis.crypto.subtle.decrypt({ name: "AES-GCM", iv: ivBytes, tagLength: 128 }, imported, cipherBytes);
+            return new Uint8Array(plain);
+        }
+        const nodeCrypto = getNodeCrypto();
+        if (nodeCrypto && typeof nodeCrypto.createDecipheriv === "function" && typeof Buffer !== "undefined") {
+            const view = cipherBytes instanceof Uint8Array ? cipherBytes : new Uint8Array(cipherBytes || []);
+            const tagBytes = view.slice(view.length - 16);
+            const payloadBytes = view.slice(0, view.length - 16);
+            const decipher = nodeCrypto.createDecipheriv("aes-256-gcm", Buffer.from(keyBytes), Buffer.from(ivBytes));
+            decipher.setAuthTag(Buffer.from(tagBytes));
+            let out = decipher.update(Buffer.from(payloadBytes));
+            out = Buffer.concat([out, decipher.final()]);
+            return new Uint8Array(out);
+        }
+        throw new Error("AES-GCM unavailable");
+    }
+
+    function parseSubtitleObjectFromJsonText(text) {
+        const subtitles = [];
+        const section = String(text || "").match(/"subtitle"\s*:\s*\{(.*?)\}/);
+        if (!section) return subtitles;
+        const pattern = /"([^"]+)":\s*"([^"]+)"/g;
+        let match;
+        while ((match = pattern.exec(section[1])) !== null) {
+            const lang = match[1];
+            const rawPath = match[2].split("#")[0].replace(/\\\//g, "/");
+            if (!rawPath) continue;
+            const base = rawPath.startsWith("http") ? "" : "https://allanime.uns.bio";
+            subtitles.push({ name: lang, url: base + rawPath });
+        }
+        return subtitles;
+    }
+
+    async function expandM3u8Streams(m3u8Url, sourceName, referer, subtitles, streamResults) {
+        try {
+            const headers = referer ? { ...HEADERS, "Referer": referer } : HEADERS;
+            const res = await withTimeout(http_get(m3u8Url, headers), 3000, null);
+            const body = res && res.body ? String(res.body) : "";
+            if (!body || !/#EXTM3U/i.test(body)) {
+                streamResults.push(attachSubtitles(new StreamResult({
+                    url: m3u8Url,
+                    source: sourceName,
+                    quality: qualityFromText(m3u8Url) || qualityFromText(sourceName),
+                    headers: headers
+                }), subtitles));
+                return;
+            }
+            const lines = body.split(/\r?\n/);
+            let added = 0;
+            for (let i = 0; i < lines.length; i += 1) {
+                const line = lines[i];
+                if (!/^#EXT-X-STREAM-INF:/i.test(line)) continue;
+                const nextLine = (lines[i + 1] || "").trim();
+                if (!nextLine || nextLine.startsWith("#")) continue;
+                const resMatch = line.match(/RESOLUTION=\d+x(\d+)/i);
+                const quality = resMatch ? parseInt(resMatch[1], 10) : (qualityFromText(line) || qualityFromText(nextLine));
+                streamResults.push(attachSubtitles(new StreamResult({
+                    url: resolveUrl(m3u8Url, nextLine),
+                    source: sourceName,
+                    quality: quality,
+                    headers: headers
+                }), subtitles));
+                added += 1;
+            }
+            if (!added) {
+                streamResults.push(attachSubtitles(new StreamResult({
+                    url: m3u8Url,
+                    source: sourceName,
+                    quality: qualityFromText(m3u8Url) || qualityFromText(sourceName),
+                    headers: headers
+                }), subtitles));
+            }
+        } catch (_) {
+            streamResults.push(attachSubtitles(new StreamResult({
+                url: m3u8Url,
+                source: sourceName,
+                quality: qualityFromText(m3u8Url) || qualityFromText(sourceName),
+                headers: referer ? { ...HEADERS, "Referer": referer } : HEADERS
+            }), subtitles));
+        }
+    }
+
+    function extractPlayerScript(html) {
+        const text = String(html || "");
+        if (typeof getAndUnpack === "function" && /function\(p,a,c,k,e,d\)/.test(text)) {
+            try {
+                const unpacked = getAndUnpack(text);
+                if (unpacked) return unpacked;
+            } catch (_) {}
+        }
+        const scriptBlocks = Array.from(text.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)).map(function (m) { return m[1] || ""; });
+        for (let i = 0; i < scriptBlocks.length; i += 1) {
+            const block = scriptBlocks[i];
+            if (block.includes('jwplayer("vplayer").setup(') || /sources\s*:/.test(block)) return block;
+        }
+        return "";
+    }
+
+    async function resolveVidStackLike(url, sourceName, subtitles, streamResults) {
+        try {
+            const headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0"
+            };
+            const hash = String(url).substring(String(url).lastIndexOf("#") + 1).replace(/^\//, "");
+            if (!hash) return false;
+            const baseUrl = getBaseUrl(url);
+            const encodedRes = await withTimeout(http_get(`${baseUrl}/api/v1/video?id=${hash}`, headers), 4000, null);
+            if (!encodedRes || !encodedRes.body) return false;
+            const ivList = ["1234567890oiuytr", "0123456789abcdef"];
+            let decryptedText = null;
+            for (let i = 0; i < ivList.length; i += 1) {
+                try {
+                    decryptedText = await decryptAesCbcHex(String(encodedRes.body).trim(), "kiemtienmua911ca", ivList[i]);
+                    if (decryptedText) break;
+                } catch (_) {}
+            }
+            if (!decryptedText) return false;
+            const sourceMatch = decryptedText.match(/"source":"(.*?)"/);
+            const m3u8 = sourceMatch ? sourceMatch[1].replace(/\\\//g, "/") : "";
+            if (!m3u8) return false;
+            const mergedSubs = mergeSubtitleLists(subtitles, parseSubtitleObjectFromJsonText(decryptedText));
+            await expandM3u8Streams(m3u8, sourceName || "Vidstack", url, mergedSubs, streamResults);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function resolveByseLike(url, sourceName, subtitles, streamResults) {
+        try {
+            const base = getBaseUrl(url);
+            const code = getCodeFromUrl(url);
+            if (!base || !code) return false;
+            const detailsRes = await withTimeout(http_get(`${base}/api/videos/${code}/embed/details`, HEADERS), 4000, null);
+            if (!detailsRes || !detailsRes.body) return false;
+            const details = JSON.parse(detailsRes.body || "{}");
+            const embedFrameUrl = details.embed_frame_url || details.embedFrameUrl;
+            if (!embedFrameUrl) return false;
+            const embedBase = getBaseUrl(embedFrameUrl);
+            const embedCode = getCodeFromUrl(embedFrameUrl);
+            if (!embedBase || !embedCode) return false;
+            const playbackUrl = `${embedBase}/api/videos/${embedCode}/embed/playback`;
+            const getHeaders = {
+                "accept": "*/*",
+                "accept-language": "en-US,en;q=0.5",
+                "priority": "u=1, i",
+                "referer": embedFrameUrl,
+                "x-embed-parent": embedFrameUrl
+            };
+            const postHeaders = {
+                "Accept": "*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Content-Type": "application/json",
+                "Referer": embedFrameUrl,
+                "X-Embed-Parent": url,
+                "Priority": "u=4"
+            };
+            let playbackRes = await withTimeout(http_get(playbackUrl, getHeaders), 4000, null);
+            let playbackRoot = null;
+            if (playbackRes && playbackRes.status === 200 && playbackRes.body) {
+                playbackRoot = JSON.parse(playbackRes.body || "{}");
+            } else {
+                let postRes;
+                try {
+                    postRes = await withTimeout(http_post(playbackUrl, postHeaders, JSON.stringify({ fingerprint: {} })), 4000, null);
+                } catch (_) {
+                    postRes = await withTimeout(http_post(playbackUrl, JSON.stringify({ fingerprint: {} }), postHeaders), 4000, null);
+                }
+                if (postRes && postRes.body) playbackRoot = JSON.parse(postRes.body || "{}");
+            }
+            const playback = playbackRoot && playbackRoot.playback;
+            if (!playback || !playback.iv || !playback.payload || !playback.key_parts) return false;
+            const keyBytes = concatBytes([
+                base64UrlDecodeToBytes(playback.key_parts[0]),
+                base64UrlDecodeToBytes(playback.key_parts[1])
+            ]);
+            const ivBytes = base64UrlDecodeToBytes(playback.iv);
+            const cipherBytes = base64UrlDecodeToBytes(playback.payload);
+            const plainBytes = await decryptAesGcm(cipherBytes, keyBytes, ivBytes);
+            let jsonStr = bytesToUtf8(plainBytes);
+            if (jsonStr.charCodeAt(0) === 0xFEFF) jsonStr = jsonStr.slice(1);
+            const root = JSON.parse(jsonStr || "{}");
+            const streamUrl = root && root.sources && root.sources[0] && root.sources[0].url;
+            if (!streamUrl) return false;
+            await expandM3u8Streams(streamUrl, sourceName || "Bysekoze", base, subtitles, streamResults);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function resolveStreamWishLike(url, sourceName, subtitles, streamResults) {
+        try {
+            const mainUrl = getBaseUrl(url);
+            const headers = {
+                "Accept": "*/*",
+                "Connection": "keep-alive",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "cross-site",
+                "Referer": `${mainUrl}/`,
+                "Origin": `${mainUrl}/`,
+                "User-Agent": "Mozilla/5.0"
+            };
+            let resolvedUrl = url;
+            if (/\/f\//.test(url)) resolvedUrl = `${mainUrl}/${url.substring(url.indexOf("/f/") + 3)}`;
+            else if (/\/e\//.test(url)) resolvedUrl = `${mainUrl}/${url.substring(url.indexOf("/e/") + 3)}`;
+            const pageRes = await withTimeout(http_get(resolvedUrl, referer ? { ...headers, "Referer": referer } : headers), 4000, null);
+            if (!pageRes || !pageRes.body) return false;
+            const playerScript = extractPlayerScript(pageRes.body);
+            let m3u8 = null;
+            if (playerScript) {
+                const fileMatch = playerScript.match(/file:\s*"([^"]*m3u8[^"]*)"/i) || playerScript.match(/sources:\s*\[\{file:"([^"]+)"/i);
+                if (fileMatch) m3u8 = fileMatch[1];
+            }
+            if (!m3u8) {
+                const urls = findMediaUrlsInHtml(pageRes.body).filter(function (candidate) { return /\.m3u8/i.test(candidate); });
+                m3u8 = urls[0];
+            }
+            if (!m3u8) return false;
+            await expandM3u8Streams(m3u8, sourceName || "StreamWish", mainUrl, subtitles, streamResults);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function resolveFilemoonV2Like(url, sourceName, subtitles, streamResults) {
+        try {
+            const headers = {
+                "Referer": url,
+                "Sec-Fetch-Dest": "iframe",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "cross-site",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0"
+            };
+            const pageRes = await withTimeout(http_get(url, headers), 4000, null);
+            if (!pageRes || !pageRes.body) return false;
+            let href = "";
+            if (typeof parse_html === "function") {
+                try {
+                    const iframeRows = await parse_html(String(pageRes.body), "iframe", "src");
+                    href = iframeRows && iframeRows[0] && (iframeRows[0].attr || iframeRows[0].src || iframeRows[0].href || "");
+                } catch (_) {}
+            }
+            if (!href) {
+                const iframeMatch = String(pageRes.body).match(/<iframe[^>]+src=["']([^"']+)["']/i);
+                href = iframeMatch ? iframeMatch[1] : "";
+            }
+            href = href ? resolveUrl(url, href) : "";
+            if (!href) return false;
+            const iframeRes = await withTimeout(http_get(href, {
+                "Accept-Language": "en-US,en;q=0.5",
+                "sec-fetch-dest": "iframe"
+            }), 4000, null);
+            if (!iframeRes || !iframeRes.body) return false;
+            const scriptContent = extractPlayerScript(iframeRes.body);
+            let m3u8 = null;
+            if (scriptContent) {
+                const match = scriptContent.match(/sources:\s*\[\{file:"(.*?)"/i);
+                if (match) m3u8 = match[1];
+            }
+            if (!m3u8) {
+                const urls = findMediaUrlsInHtml(iframeRes.body).filter(function (candidate) { return /\.m3u8/i.test(candidate); });
+                m3u8 = urls[0];
+            }
+            if (!m3u8) return false;
+            await expandM3u8Streams(m3u8, sourceName || "Filemoon", getBaseUrl(url), subtitles, streamResults);
+            return true;
+        } catch (_) {
+            return false;
+        }
     }
 
     async function withTimeout(promise, ms, fallback) {
@@ -508,6 +931,18 @@
 
     async function resolveEmbeddedSource(url, sourceName, subtitles, streamResults) {
         try {
+            if (/allanime\.uns\.bio|server1\.uns\.bio/i.test(String(url || ""))) {
+                return await resolveVidStackLike(url, sourceName || "Allanimeups", subtitles, streamResults);
+            }
+            if (/bysekoze\.com|byse\.sx/i.test(String(url || ""))) {
+                return await resolveByseLike(url, sourceName || "Bysekoze", subtitles, streamResults);
+            }
+            if (/swiftplayers\.com|streamwish|mwish|dwish|embedwish|wishembed|kswplayer|wishfast|strwish|flaswish|awish|obeywish|jodwish|swhoi|multimovies|uqloads|cdnwish|asnwish|nekowish|wishonly|playerwish|streamhls|hlswish/i.test(String(url || ""))) {
+                return await resolveStreamWishLike(url, sourceName || "StreamWish", subtitles, streamResults);
+            }
+            if (/filemoon/i.test(String(url || ""))) {
+                return await resolveFilemoonV2Like(url, sourceName || "Filemoon", subtitles, streamResults);
+            }
             const shouldProbe = /vidstreaming|mp4upload|ok\.ru|streamsb/i.test(String(url || ""));
             if (!shouldProbe) return false;
             const res = await withTimeout(http_get(url, {
@@ -538,7 +973,7 @@
     async function resolveSourceEntries(source, streamResults) {
         let rawLink = source.sourceUrl;
         if (!rawLink) return;
-        const downloadSubtitles = buildSubtitleList(source?.subtitles);
+        const sourceSubtitles = buildSubtitleList(source?.subtitles);
 
         let link = String(rawLink).startsWith("--") || String(rawLink).startsWith("-")
             ? decryptHex(rawLink)
@@ -554,30 +989,57 @@
                 if (!jsonRes || !jsonRes.body) return;
                 const videoData = JSON.parse(jsonRes.body || "{}");
                 const links = videoData.links || [];
-                const subtitles = buildSubtitleList(videoData.subtitles);
-                links.forEach(function (l) {
-                    if (!l.link) return;
+                const subtitles = mergeSubtitleLists(sourceSubtitles, buildSubtitleList(videoData.subtitles));
+                for (let i = 0; i < links.length; i += 1) {
+                    const l = links[i];
+                    if (!l || !l.link) continue;
+                    const host = getHostName(l.link);
                     const referer = l.headers?.referer;
-                    const stream = new StreamResult({
-                        url: l.link,
-                        source: `AllAnime - ${getHostName(l.link)}${l.resolutionStr ? " (" + l.resolutionStr + ")" : ""}`,
-                        quality: qualityFromText(l.resolutionStr) || qualityFromText(l.link),
-                        headers: referer ? { ...HEADERS, "Referer": referer } : HEADERS
-                    });
-                    streamResults.push(attachSubtitles(stream, subtitles));
-                });
+                    const endpoint = /^https?:\/\//i.test(l.link)
+                        ? l.link
+                        : `${API_ENDPOINT}/player?uri=${l.link}`;
+                    const serverSubtitles = mergeSubtitleLists(subtitles, buildSubtitleList(l.subtitles));
+                    const customLoadedEarly = await resolveEmbeddedSource(l.link, source.sourceName || host, serverSubtitles, streamResults);
+                    if (customLoadedEarly) continue;
+                    if (String(source.sourceName || "").includes("Default") &&
+                        (l.resolutionStr === "SUB" || l.resolutionStr === "Alt vo_SUB")) {
+                        await expandM3u8Streams(l.link, `AllAnime - ${source.sourceName}`, "https://static.crunchyroll.com/", serverSubtitles, streamResults);
+                        continue;
+                    }
+                    if (String(source.sourceName || "").includes("Uns")) {
+                        const builtInLoaded = await tryBuiltinExtractor(l.link, source.sourceName || host, serverSubtitles, streamResults);
+                        if (builtInLoaded) continue;
+                    }
+                    if (l.hls === null || typeof l.hls === "undefined") {
+                        const builtInLoaded = await tryBuiltinExtractor(l.link, source.sourceName || host, serverSubtitles, streamResults);
+                        if (builtInLoaded) continue;
+                        streamResults.push(attachSubtitles(new StreamResult({
+                            url: l.link,
+                            source: `AllAnime ${host} ${source.sourceName || ""}`.trim(),
+                            quality: qualityFromText(l.resolutionStr) || qualityFromText(l.link) || 1080,
+                            headers: referer ? { ...HEADERS, "Referer": referer } : HEADERS
+                        }), serverSubtitles));
+                        continue;
+                    }
+                    if (l.hls === true) {
+                        await expandM3u8Streams(l.link, `AllAnime - ${host}`, referer || endpoint, serverSubtitles, streamResults);
+                        continue;
+                    }
+                }
             } catch (_) {}
         } else {
             const fixed = link.startsWith("//") ? ("https:" + link) : link;
             const finalUrl = await resolveServerRedirect(fixed);
-            const extracted = await resolveEmbeddedSource(finalUrl, source.sourceName || getHostName(finalUrl), downloadSubtitles, streamResults);
+            const builtInLoaded = await tryBuiltinExtractor(finalUrl, source.sourceName || getHostName(finalUrl), sourceSubtitles, streamResults);
+            if (builtInLoaded) return;
+            const extracted = await resolveEmbeddedSource(finalUrl, source.sourceName || getHostName(finalUrl), sourceSubtitles, streamResults);
             if (!extracted) {
-                streamResults.push(new StreamResult({
+                streamResults.push(attachSubtitles(new StreamResult({
                     url: finalUrl,
                     source: `AllAnime - ${source.sourceName || getHostName(finalUrl)}`,
                     quality: qualityFromText(source.sourceName) || qualityFromText(finalUrl),
                     headers: HEADERS
-                }));
+                }), sourceSubtitles));
             }
         }
 
@@ -593,7 +1055,7 @@
                     if (!item.link) return;
                     streamResults.push(new StreamResult({
                         url: item.link,
-                        source: `AllAnime [${String(source.downloads?.sourceName || source.sourceName || "Download")}]`,
+                        source: `AllAnime [${String(source.downloads?.dubStatus || "").toUpperCase() || "SUB"}] [${String(source.downloads?.sourceName || source.sourceName || "Download")}]`,
                         quality: qualityFromText(item.link) || qualityFromText(source.downloads?.sourceName) || 1080,
                         headers: HEADERS
                     }));
