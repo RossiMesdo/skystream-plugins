@@ -1,6 +1,6 @@
 (function() {
     const TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
-    const TMDB_API_URL = "https://wild-surf-4a0d.phisher1.workers.dev";
+    const TMDB_API_URL = "https://api.themoviedb.org/3";
     const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
     const runtimeManifest = (typeof manifest !== "undefined" && manifest) ? manifest : {};
     const MAIN_URL = String(runtimeManifest.baseUrl || "https://new7.hdhub4u.fo").replace(/\/+$/, "");
@@ -114,7 +114,7 @@
     async function search(query, cb) {
         try {
             const today = (new Date()).toISOString().split("T")[0];
-            const searchUrl = `https://search.pingora.fyi/collections/post/documents/search?q=${encodeURIComponent(query)}&query_by=post_title,category&query_by_weights=4,2&sort_by=sort_by_date:desc&limit=15&highlight_fields=none&use_cache=true&page=1&analytics_tag=${today}`;
+            const searchUrl = `https://search.hdhub4u.glass/collections/post/documents/search?q=${encodeURIComponent(query)}&query_by=post_title,category&query_by_weights=4,2&sort_by=sort_by_date:desc&limit=15&highlight_fields=none&use_cache=true&page=1&analytics_tag=${today}`;
 
             const data = await fetchJson(searchUrl, HEADERS, {});
 
