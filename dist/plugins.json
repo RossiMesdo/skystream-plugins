@@ -17,12 +17,6 @@
       "Movie",
       "TV"
     ],
-    "mainPage": [
-      {
-        "path": "/page/",
-        "name": "Main Page"
-      }
-    ],
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javHD.sky"
   },
   {
