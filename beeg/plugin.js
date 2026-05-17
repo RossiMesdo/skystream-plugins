@@ -121,12 +121,25 @@
             const data = JSON.parse(url);
 
             if (data.type === "video") {
+                // TẠO TẬP PHIM ĐẠI DIỆN CHO MOVIE ĐỂ NÚT PLAY KHÔNG BỊ XÁM
+                const singleEpisode = new Episode({
+                    name: data.title || "Phát Video",
+                    url: url, // Đẩy nguyên cục json url này sang loadStreams
+                    episode: 1,
+                    season: 1,
+                    posterUrl: data.poster,
+                    description: data.title || "Không có tóm tắt.",
+                    headers: HEADERS
+                });
+
                 // Nếu URL là dữ liệu của 1 video trực tiếp (từ trang Home)
                 const item = new MultimediaItem({
                     title: data.title || "Video",
-                    url: url, // Đẩy nguyên cục json url này sang loadStreams
+                    url: url, 
                     posterUrl: data.poster,
                     type: "movie",
+                    description: data.title || "Không có thông tin tóm tắt cho video này.", // THÊM DESCRIPTION
+                    episodes: [singleEpisode], // ĐƯA VÀO DANH SÁCH EPISODES
                     headers: HEADERS
                 });
                 return cb({ success: true, data: item });
@@ -155,7 +168,7 @@
                         url: JSON.stringify({ type: 'video', id: videoId, title: epTitle, hls: fileObj.hls_resources?.fl_cdn_multi }),
                         episode: index + 1,
                         season: 1,
-                        description: `Duration: ${durationStr}`,
+                        description: `Thời lượng: ${durationStr}`,
                         posterUrl: `https://thumbs.externulls.com/videos/${videoId}/0.webp?size=480x270`,
                         headers: HEADERS
                     });
@@ -166,6 +179,7 @@
                     url: url,
                     posterUrl: data.poster,
                     type: "tv",
+                    description: `Danh sách video của ${data.name}`, // THÊM DESCRIPTION CHO ACTOR
                     episodes: episodes,
                     headers: HEADERS
                 });
