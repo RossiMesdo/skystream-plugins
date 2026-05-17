@@ -121,10 +121,9 @@
             const data = JSON.parse(url);
 
             if (data.type === "video") {
-                // TẠO TẬP PHIM ĐẠI DIỆN CHO MOVIE ĐỂ NÚT PLAY KHÔNG BỊ XÁM
                 const singleEpisode = new Episode({
                     name: data.title || "Phát Video",
-                    url: url, // Đẩy nguyên cục json url này sang loadStreams
+                    url: url,
                     episode: 1,
                     season: 1,
                     posterUrl: data.poster,
@@ -132,7 +131,6 @@
                     headers: HEADERS
                 });
 
-                // Cấu trúc item trả về
                 const item = new MultimediaItem({
                     title: data.title || "Video",
                     url: url, 
@@ -145,7 +143,6 @@
                 return cb({ success: true, data: item });
 
             } else if (data.type === "actor") {
-                // Load danh sách video của diễn viên
                 const epsRes = await http_get(`${API_BEEG}/tag/videos/${data.slug}?limit=48&offset=0`, HEADERS);
                 const videos = JSON.parse(epsRes.body || "[]");
                 
@@ -197,7 +194,7 @@
             const data = JSON.parse(url);
             let hlsMulti = null;
             
-            // LUÔN LUÔN gọi API mới nhất để lấy link stream nhằm tránh lỗi hết hạn Token (buffering)
+            // Lấy lại token stream nóng hổi nhất
             if (data.id) {
                 try {
                     const res = await http_get(`${API_BEEG}/facts/file/${data.id}`, HEADERS);
@@ -205,32 +202,27 @@
                     hlsMulti = root.file?.hls_resources?.fl_cdn_multi 
                             || root.fc_facts?.[0]?.hls_resources?.fl_cdn_multi;
                 } catch (apiError) {
-                    // Nếu lỗi mạng tạm thời, ta bỏ qua để dùng lại link cũ (nếu có)
+                    // Bỏ qua lỗi mạng
                 }
             }
 
-            // Fallback (dự phòng): nếu API thất bại, thử dùng lại link HLS cũ đã lưu lúc nãy
             if (!hlsMulti) {
                 hlsMulti = data.hls;
             }
 
             if (hlsMulti) {
-                // Đảm bảo không bị lỗi 2 dấu gạch chéo // khi nối chuỗi
-                const path = hlsMulti.startsWith("/") ? hlsMulti : `/${hlsMulti}`;
-                
-                // CHỈ GIỮ LẠI HEADER CẦN THIẾT CHO PLAYER
-                // Bỏ đi Accept: application/json vì nó khiến CDN video chặn kết nối
-                const streamHeaders = {
-                    "User-Agent": HEADERS["User-Agent"],
-                    "Referer": HEADERS["Referer"],
-                    "Origin": HEADERS["Origin"]
-                };
+                // Đảm bảo định dạng URL chuẩn xác
+                const path = hlsMulti.replace(/^\//, ''); // Loại bỏ dấu / ở đầu nếu có
+                const streamUrl = hlsMulti.startsWith("http") ? hlsMulti : `https://video.beeg.com/${path}`;
 
                 const stream = new StreamResult({
-                    url: `https://video.beeg.com${path}`,
-                    source: "Beeg Video",
-                    quality: "Auto", // M3U8 sẽ tự động nhảy chất lượng
-                    headers: streamHeaders
+                    url: streamUrl,
+                    source: "Beeg Server",
+                    quality: 1080, // LƯU Ý QUAN TRỌNG: Phải là số
+                    headers: {
+                        "Referer": "https://beeg.com/",
+                        "User-Agent": HEADERS["User-Agent"]
+                    }
                 });
                 
                 cb({ success: true, data: [stream] });
