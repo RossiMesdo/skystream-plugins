@@ -1,102 +1,73 @@
-const BASE = "https://store.externulls.com";
+(function () {
 
-async function request(url) {
-    const res = await fetch(url, {
-        headers: {
-            "Referer": "https://beeg.com/",
-            "Origin": "https://beeg.com",
-            "User-Agent": "Mozilla/5.0"
-        }
-    });
+    async function getHome(cb) {
 
-    return await res.json();
-}
-
-async function getHome(cb) {
-    try {
-        const data = await request(
-            `${BASE}/facts/tag?slug=Japanese&limit=20&offset=0`
-        );
-
-        const items = [];
-
-        for (const item of data) {
-            const vid = item.file?.data?.[0];
-
-            if (!vid) continue;
-
-            items.push({
-                title: vid.cd_value,
-                url: JSON.stringify(item.file),
-                poster: `https://thumbs.externulls.com/videos/${vid.cd_file}/49.webp?size=480x270`
-            });
-        }
+        const item = new MultimediaItem({
+            title: "Test Video",
+            url: "test",
+            posterUrl: "https://picsum.photos/300/450"
+        });
 
         cb({
             success: true,
             data: {
-                "Japanese": items
+                "Featured": [item]
             }
         });
+    }
 
-    } catch (e) {
+    async function search(query, cb) {
+
+        const item = new MultimediaItem({
+            title: query,
+            url: "test",
+            posterUrl: "https://picsum.photos/300/450"
+        });
+
         cb({
-            success: false,
-            message: e.toString()
+            success: true,
+            data: [item]
         });
     }
-}
 
-async function search(query, cb) {
-    cb({
-        success: true,
-        data: []
-    });
-}
+    async function load(url, cb) {
 
-async function load(url, cb) {
-    cb({
-        success: true,
-        data: {
-            title: "Beeg Video",
-            streams: [url]
-        }
-    });
-}
+        const item = new MultimediaItem({
+            title: "Test Video",
+            url: url,
+            description: "This is a test item",
+            posterUrl: "https://picsum.photos/300/450",
+            episodes: [
+                new Episode({
+                    name: "Episode 1",
+                    url: "stream1"
+                })
+            ]
+        });
 
-async function loadStreams(data, cb) {
-    try {
-        const parsed = JSON.parse(data);
+        cb({
+            success: true,
+            data: item
+        });
+    }
 
-        const hls = parsed.hls_resources?.fl_cdn_multi;
-
-        if (!hls) {
-            cb({
-                success: false,
-                message: "No stream"
-            });
-            return;
-        }
+    async function loadStreams(url, cb) {
 
         cb({
             success: true,
             data: [
-                {
-                    url: `https://video.beeg.com/${hls}`,
-                    quality: "HD"
-                }
+                new StreamResult({
+                    url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+                    quality: 720,
+                    source: "Test Stream"
+                })
             ]
         });
-
-    } catch (e) {
-        cb({
-            success: false,
-            message: e.toString()
-        });
     }
-}
 
-globalThis.getHome = getHome;
-globalThis.search = search;
-globalThis.load = load;
-globalThis.loadStreams = loadStreams;
+    globalThis.getHome = getHome;
+    globalThis.search = search;
+    globalThis.load = load;
+    globalThis.loadStreams = loadStreams;
+
+})();
