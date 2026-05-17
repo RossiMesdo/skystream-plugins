@@ -29,7 +29,7 @@
         return el ? el.textContent.trim() : '';
     }
 
-    // ========== ITEM PARSING (đã thêm chống trùng) ==========
+    // ========== ITEM PARSING ==========
     function parseMainPageItem(el, base) {
         const linkEl = el.querySelector('a[href*="/en/"], a[href*="/dm"]');
         if (!linkEl) return null;
@@ -55,7 +55,7 @@
         const posterUrl = resolveUrl(poster, base);
         if (!posterUrl) return null;
 
-        return { title, url, posterUrl }; // trả về object thô để dễ deduplicate
+        return { title, url, posterUrl };
     }
 
     function parseListItems(doc, base) {
@@ -78,36 +78,61 @@
         return result;
     }
 
-    // ========== GET HOME (bỏ trống để nhường mainPage) ==========
-    async function getHome(cb) {
-        // Tất cả danh mục đã do mainPage đảm nhiệm, trả về rỗng để tránh trùng lặp.
-        cb({ success: true, data: {} });
-    }
+    // ========== DANH MỤC ==========
+    const CATEGORIES = [
+        { name: "Weekly Hot", path: "/dm169/en/weekly-hot?sort=weekly_views" },
+        { name: "Monthly Hot", path: "/dm263/en/monthly-hot?sort=views" },
+        { name: "Newly Added", path: "/en/new?sort=published_at" },
+        { name: "English Subtitles", path: "/en/english-subtitle" },
+        { name: "Uncensored Leak", path: "/dm628/en/uncensored-leak" },
+        { name: "FC2", path: "/dm150/en/fc2" },
+        { name: "Madou", path: "/dm35/en/madou" },
+        { name: "K-Live", path: "/en/klive" },
+        { name: "C-Live", path: "/en/clive" },
+        { name: "Tokyo Hot", path: "/dm29/en/tokyohot" },
+        { name: "HEYZO", path: "/dm1198483/en/heyzo" },
+        { name: "1pondo", path: "/dm2469695/en/1pondo" },
+        { name: "Caribbeancom", path: "/dm3959622/en/caribbeancom" },
+        { name: "Caribbeancom Premium", path: "/dm48032/en/caribbeancompr" },
+        { name: "10musume", path: "/dm3710098/en/10musume" },
+        { name: "Pacopacomama", path: "/dm1342558/en/pacopacomama" },
+        { name: "Gachinco", path: "/dm136/en/gachinco" },
+        { name: "XXX-AV", path: "/dm29/en/xxxav" },
+        { name: "Married Slash", path: "/dm24/en/marriedslash" },
+        { name: "Naughty 4610", path: "/dm20/en/naughty4610" },
+        { name: "Naughty 0930", path: "/dm22/en/naughty0930" }
+    ];
 
-    // ========== GET MAIN PAGE (xử lý tất cả danh mục) ==========
-    async function getMainPage(page, request, cb) {
+    // ========== GET HOME ==========
+    async function getHome(cb) {
         try {
-            const basePath = request.data;  // vd: "/dm169/en/weekly-hot?sort=weekly_views&page="
-            const url = BASE_URL + basePath + page;
-            const doc = await fetchDoc(url);
-            const items = parseListItems(doc, BASE_URL);
-            cb({
-                success: true,
-                data: {
-                    items: [{
-                        name: request.name,
-                        list: items,
-                        isHorizontalImages: true
-                    }],
-                    hasNext: items.length > 0   // tiếp tục nếu còn ít nhất 1 phim
+            const homeData = {};
+
+            // Lấy song song tất cả category (chỉ page=1, giới hạn 30 video mỗi loại)
+            const results = await Promise.allSettled(
+                CATEGORIES.map(async cat => {
+                    const separator = cat.path.includes('?') ? '&' : '?';
+                    const url = BASE_URL + cat.path + separator + 'page=1';
+                    const doc = await fetchDoc(url);
+                    const items = parseListItems(doc, BASE_URL);
+                    return { name: cat.name, items: items.slice(0, 30) };
+                })
+            );
+
+            results.forEach(res => {
+                if (res.status === 'fulfilled' && res.value.items.length) {
+                    homeData[res.value.name] = res.value.items;
                 }
             });
+
+            if (Object.keys(homeData).length === 0) throw new Error('No categories loaded');
+            cb({ success: true, data: homeData });
         } catch (e) {
-            cb({ success: false, errorCode: 'MAINPAGE_ERROR', message: e.message });
+            cb({ success: false, errorCode: 'HOME_ERROR', message: e.message });
         }
     }
 
-    // ========== SEARCH (giữ nguyên) ==========
+    // ========== SEARCH ==========
     async function search(query, cb) {
         try {
             const url = BASE_URL + '/en/search/' + encodeURIComponent(query);
@@ -119,7 +144,7 @@
         }
     }
 
-    // ========== LOAD (mô tả đầy đủ, ép kiểu Episode) ==========
+    // ========== LOAD ==========
     async function load(url, cb) {
         try {
             const doc = await fetchDoc(url);
@@ -150,7 +175,7 @@
                 actors.push(new Actor({ name: a.textContent.trim() }));
             });
 
-            // Description – lấy toàn bộ từ div chuyên dụng, tránh cắt cụt
+            // Description
             let description = '';
             const descDiv = doc.querySelector('div.movie-desc, div.description, div.entry-content');
             if (descDiv) {
@@ -161,10 +186,10 @@
                 if (descMeta) description = descMeta.getAttribute('content') || '';
             }
 
-            // Tạo Episode
+            // Tạo Episode để hiển thị nút Play
             const episode = new Episode({
                 name: title,
-                url: url,
+                url: url,   // truyền URL phim cho loadStreams
                 posterUrl: posterUrl,
                 description: description
             });
@@ -186,17 +211,15 @@
         }
     }
 
-    // ========== LOAD STREAMS (tích hợp bộ unpacker dự phòng) ==========
-    // Bộ giải mã P.A.C.K.E.R. đơn giản (fallback)
+    // ========== LOAD STREAMS ==========
+    // Bộ giải mã P.A.C.K.E.R. thủ công
     function unpackJS(packed) {
-        // Tìm pattern: eval(function(p,a,c,k,e,d){...})
         const match = packed.match(/\}\('([^']*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)\)/);
         if (!match) return packed;
         const data = match[1];
         const radix = parseInt(match[2]);
         const count = parseInt(match[3]);
         const words = match[4].split('|');
-        // Thay thế các từ khóa
         let unpacked = data.replace(/\b\w+\b/g, function(word) {
             const index = parseInt(word, radix);
             return words[index] || word;
@@ -209,12 +232,11 @@
             const html = await fetchRaw(dataUrl);
             let unpacked = html;
 
-            // Dùng getAndUnpack nếu có
+            // Dùng getAndUnpack nếu có, nếu lỗi thì tự unpack
             if (typeof getAndUnpack === 'function') {
                 try {
                     unpacked = getAndUnpack(html);
                 } catch (e) {
-                    // fallback sang unpack thủ công
                     unpacked = unpackJS(html);
                 }
             } else {
@@ -250,7 +272,6 @@
 
     // Export
     globalThis.getHome = getHome;
-    globalThis.getMainPage = getMainPage;
     globalThis.search = search;
     globalThis.load = load;
     globalThis.loadStreams = loadStreams;
