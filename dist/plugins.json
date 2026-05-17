@@ -285,6 +285,23 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.streamflix.sky"
   },
   {
+    "packageName": "dev.lord.xchina",
+    "name": "xchina",
+    "version": 1,
+    "baseUrl": "https://en.xchina.co",
+    "description": "xchina plugin",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xchina.sky"
+  },
+  {
     "packageName": "dev.akash.stars.xdmovies",
     "name": "XD Movies",
     "version": 1,
