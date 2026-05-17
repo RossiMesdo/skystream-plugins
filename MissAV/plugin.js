@@ -37,23 +37,19 @@
         const url = resolveUrl(rawHref, base);
         if (!url) return null;
 
-        // Tiêu đề
         const titleEl = el.querySelector('div.my-2 a, div.title a, a.text-secondary');
         let baseTitle = titleEl ? cleanText(titleEl) : cleanText(linkEl);
         if (!baseTitle) return null;
 
-        // Blacklist
         const blacklist = /^(Recent update|Contact|Support|DMCA|Home)$/i;
         if (blacklist.test(baseTitle)) return null;
 
-        // Kiểm tra uncensored
         const combined = (linkEl.getAttribute('alt') || '') + (rawHref || '') + (el.outerHTML || '');
         const isUncensored = /uncensored[-_ ]?leak/i.test(combined);
         const title = (isUncensored && !baseTitle.startsWith('Uncensored - ', true))
             ? 'Uncensored - ' + baseTitle
             : baseTitle;
 
-        // Poster
         const img = el.querySelector('img');
         const poster = img?.getAttribute('data-src') || img?.getAttribute('src') || '';
         const posterUrl = resolveUrl(poster, base);
@@ -104,14 +100,13 @@
         try {
             const homeData = {};
 
-            // Lấy song song tất cả category (chỉ page=1, giới hạn ~30 item mỗi loại)
             const results = await Promise.allSettled(
                 CATEGORIES.map(async cat => {
                     const separator = cat.path.includes('?') ? '&' : '?';
                     const url = BASE_URL + cat.path + separator + 'page=1';
                     const doc = await fetchDoc(url);
                     const items = parseListItems(doc, BASE_URL);
-                    return { name: cat.name, items: items.slice(0, 30) }; // giới hạn 30
+                    return { name: cat.name, items: items.slice(0, 30) };
                 })
             );
 
@@ -128,10 +123,9 @@
         }
     }
 
-    // ========== GET MAIN PAGE (phân trang cho Newly Added) ==========
+    // ========== GET MAIN PAGE (phân trang Newly Added) ==========
     async function getMainPage(page, request, cb) {
         try {
-            // request.data = "/en/new?sort=published_at&page="
             const basePath = request.data;
             const url = BASE_URL + basePath + page;
             const doc = await fetchDoc(url);
@@ -144,7 +138,7 @@
                         list: items,
                         isHorizontalImages: true
                     }],
-                    hasNext: items.length >= 24
+                    hasNext: items.length > 0   // luôn load tiếp nếu có ít nhất 1 item
                 }
             });
         } catch (e) {
@@ -164,7 +158,7 @@
         }
     }
 
-    // ========== LOAD (chi tiết phim) ==========
+    // ========== LOAD (chi tiết) ==========
     async function load(url, cb) {
         try {
             const doc = await fetchDoc(url);
@@ -172,9 +166,11 @@
             if (!titleEl) throw new Error('Title not found');
             const title = titleEl.textContent.trim();
 
+            // Poster
             const posterMeta = doc.querySelector('meta[property="og:image"]');
             const posterUrl = posterMeta ? resolveUrl(posterMeta.getAttribute('content'), BASE_URL) : '';
 
+            // Year
             const timeEl = doc.querySelector('time');
             let year = null;
             if (timeEl) {
@@ -183,19 +179,33 @@
                 if (isNaN(year)) year = null;
             }
 
+            // Tags
             const tags = [];
             doc.querySelectorAll('div.text-secondary:contains(genre) a').forEach(a => tags.push(a.textContent.trim()));
 
+            // Actresses
             const actors = [];
             doc.querySelectorAll('div.text-secondary:contains(actress) a').forEach(a => {
                 actors.push(new Actor({ name: a.textContent.trim() }));
             });
 
-            // Luôn tạo một Episode để nút Play hiển thị
+            // Description: meta description hoặc nội dung bài viết
+            let description = '';
+            const descMeta = doc.querySelector('meta[name="description"]');
+            if (descMeta) {
+                description = descMeta.getAttribute('content') || '';
+            }
+            if (!description) {
+                const descDiv = doc.querySelector('div.entry-content, div.description, div.movie-desc');
+                if (descDiv) description = descDiv.textContent.trim();
+            }
+
+            // Tạo Episode để hiển thị nút Play
             const episode = new Episode({
                 name: title,
-                url: url,                     // truyền trực tiếp URL phim cho loadStreams
-                posterUrl: posterUrl
+                url: url,                     // truyền thẳng URL phim cho loadStreams
+                posterUrl: posterUrl,
+                description: description
             });
 
             cb({ success: true, data: new MultimediaItem({
@@ -206,6 +216,7 @@
                 year: year,
                 tags: tags,
                 cast: actors,
+                description: description,
                 episodes: [episode],
                 headers: HEADERS
             })});
@@ -217,13 +228,30 @@
     // ========== LOAD STREAMS ==========
     async function loadStreams(dataUrl, cb) {
         try {
-            // dataUrl chính là URL phim
             const html = await fetchRaw(dataUrl);
-            const unpacked = getAndUnpack(html);  // native helper
-            const match = unpacked.match(/\/([a-f0-9\-]{36})\//);
-            if (!match) throw new Error('Playlist ID not found');
+            let unpacked = html;
+            // Thử dùng getAndUnpack (native), nếu có lỗi hoặc không hoạt động thì tự unpack thủ công
+            if (typeof getAndUnpack === 'function') {
+                try {
+                    unpacked = getAndUnpack(html);
+                } catch (e) {
+                    // fallback: tìm trực tiếp trong html
+                }
+            }
 
-            const playlistId = match[1];
+            // Tìm playlist ID
+            let playlistId = null;
+            const match = unpacked.match(/\/([a-f0-9\-]{36})\//);
+            if (match) {
+                playlistId = match[1];
+            } else {
+                // Thử mẫu khác: surrit.com/.../playlist.m3u8
+                const match2 = html.match(/surrit\.com\/([a-f0-9\-]{36})\/playlist\.m3u8/);
+                if (match2) playlistId = match2[1];
+            }
+
+            if (!playlistId) throw new Error('Playlist ID not found');
+
             const streamUrl = `https://surrit.com/${playlistId}/playlist.m3u8`;
 
             cb({ success: true, data: [
