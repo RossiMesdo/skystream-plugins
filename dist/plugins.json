@@ -1,5 +1,22 @@
 [
   {
+    "packageName": "dev.lord.MissAV",
+    "name": "MissAV",
+    "version": 1,
+    "baseUrl": "https://MissAV.live",
+    "description": "MissAV plugin",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.MissAV.sky"
+  },
+  {
     "packageName": "dev.akash.stars.anichi",
     "name": "Anichi",
     "version": 4,
