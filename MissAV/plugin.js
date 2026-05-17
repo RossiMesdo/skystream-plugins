@@ -225,18 +225,16 @@
         }
     }
 
-    // ========== LOAD STREAMS (TỰ PARSE M3U8) ==========
+    // ========== LOAD STREAMS (TÌM UUID ĐA LỚP + TỰ PARSE M3U8) ==========
     function parseM3U8(m3u8Body, baseUrl) {
         const lines = m3u8Body.split('\n');
         let bestUrl = null;
         let bestResolution = 0;
-
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             if (line.startsWith('#EXT-X-STREAM-INF')) {
                 const resMatch = line.match(/RESOLUTION=\d+x(\d+)/i);
                 const res = resMatch ? parseInt(resMatch[1], 10) : 0;
-                // Lấy dòng tiếp theo (URL)
                 const nextLine = lines[i + 1]?.trim();
                 if (nextLine && !nextLine.startsWith('#')) {
                     const url = resolveUrl(nextLine, baseUrl);
@@ -247,10 +245,7 @@
                 }
             }
         }
-
-        // Nếu không tìm thấy stream con, có thể đây là playlist đơn
         if (!bestUrl) {
-            // Tìm dòng đầu tiên không phải comment
             for (const line of lines) {
                 const trimmed = line.trim();
                 if (trimmed && !trimmed.startsWith('#') && trimmed.endsWith('.m3u8')) {
@@ -259,53 +254,72 @@
                 }
             }
         }
-
         return bestUrl;
     }
 
     async function loadStreams(dataUrl, cb) {
         try {
             const html = await fetchRaw(dataUrl);
-            let unpacked = html;
-
-            if (typeof getAndUnpack === 'function') {
-                try { unpacked = getAndUnpack(html); } catch (e) {}
-            }
-
-            // Tìm UUID theo đúng regex Cloudstream
             let playlistId = null;
-            const uuidRegex = /\/([a-f0-9\-]{36})\//i;
-            const match = unpacked.match(uuidRegex);
+
+            // === Bước 1: Tìm trực tiếp URL surrit.com/.../playlist.m3u8 ===
+            const surritRegex = /https?:\/\/surrit\.com\/([a-f0-9\-]+)\/playlist\.m3u8/i;
+            let match = html.match(surritRegex);
             if (match) {
                 playlistId = match[1];
-            } else {
-                // fallback quét script
-                const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-                let sm;
-                while ((sm = scriptRegex.exec(html)) !== null) {
-                    const m2 = sm[1].match(uuidRegex);
-                    if (m2) { playlistId = m2[1]; break; }
-                }
-                // fallback UUID chuẩn
-                if (!playlistId) {
-                    const loose = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
-                    const lm = html.match(loose);
-                    if (lm) playlistId = lm[1];
-                }
+            }
+
+            // === Bước 2: Tìm UUID 36 ký tự có dấu / trước/sau (regex gốc) ===
+            if (!playlistId) {
+                const uuidRegex36 = /\/([a-f0-9\-]{36})\//i;
+                match = html.match(uuidRegex36);
+                if (match) playlistId = match[1];
+            }
+
+            // === Bước 3: Tìm UUID 36 ký tự không cần dấu / ===
+            if (!playlistId) {
+                const uuidRegex36Loose = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
+                match = html.match(uuidRegex36Loose);
+                if (match) playlistId = match[1];
+            }
+
+            // === Bước 4: Tìm chuỗi hex 32 ký tự (phòng trường hợp UUID bị rút gọn) ===
+            if (!playlistId) {
+                const hexRegex = /\b([a-f0-9]{32})\b/i;
+                match = html.match(hexRegex);
+                if (match) playlistId = match[1];
+            }
+
+            // === Bước 5: Thử unpack bằng getAndUnpack nếu có, rồi tìm lại ===
+            if (!playlistId && typeof getAndUnpack === 'function') {
+                try {
+                    const unpacked = getAndUnpack(html);
+                    // Thử lại các regex trên với unpacked
+                    const patterns = [
+                        /https?:\/\/surrit\.com\/([a-f0-9\-]+)\/playlist\.m3u8/i,
+                        /\/([a-f0-9\-]{36})\//i,
+                        /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i,
+                        /\b([a-f0-9]{32})\b/i
+                    ];
+                    for (const p of patterns) {
+                        const m = unpacked.match(p);
+                        if (m) {
+                            playlistId = m[1];
+                            break;
+                        }
+                    }
+                } catch (e) {}
             }
 
             if (!playlistId) throw new Error('Playlist ID not found');
 
+            // === Bước 6: Tạo master URL, tải về và chọn stream con tốt nhất ===
             const masterUrl = `https://surrit.com/${playlistId}/playlist.m3u8`;
-
-            // Tải master playlist với header chuẩn
             const playlistHeaders = {
                 'Referer': BASE_URL + '/',
                 'Origin': BASE_URL
             };
             const masterBody = await fetchRaw(masterUrl, playlistHeaders);
-
-            // Parse để lấy stream chất lượng cao nhất
             const streamUrl = parseM3U8(masterBody, masterUrl);
 
             if (!streamUrl) throw new Error('No valid stream found in playlist');
