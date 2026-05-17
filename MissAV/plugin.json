@@ -1,16 +1,33 @@
 {
-  "packageName": "dev.lord.missav",
+  "packageName": "dev.byayzen.missav",
   "name": "MissAV",
   "version": 1,
   "baseUrl": "https://missav.live",
   "description": "MissAV plugin for SkyStream",
-  "authors": ["Lord"],
-  "languages": ["en"],
+  "authors": ["ByAyzen"],
+  "languages": ["jp", "en"],
   "categories": ["NSFW", "Movie"],
   "mainPage": [
-    {
-      "path": "/en/new?sort=published_at&page=",
-      "name": "Newly Added"
-    }
+    { "path": "/dm169/en/weekly-hot?sort=weekly_views&page=", "name": "Weekly Hot" },
+    { "path": "/dm263/en/monthly-hot?sort=views&page=", "name": "Monthly Hot" },
+    { "path": "/en/new?sort=published_at&page=", "name": "Newly Added" },
+    { "path": "/en/english-subtitle?page=", "name": "English Subtitles" },
+    { "path": "/dm628/en/uncensored-leak?page=", "name": "Uncensored Leak" },
+    { "path": "/dm150/en/fc2?page=", "name": "FC2" },
+    { "path": "/dm35/en/madou?page=", "name": "Madou" },
+    { "path": "/en/klive?page=", "name": "K-Live" },
+    { "path": "/en/clive?page=", "name": "C-Live" },
+    { "path": "/dm29/en/tokyohot?page=", "name": "Tokyo Hot" },
+    { "path": "/dm1198483/en/heyzo?page=", "name": "HEYZO" },
+    { "path": "/dm2469695/en/1pondo?page=", "name": "1pondo" },
+    { "path": "/dm3959622/en/caribbeancom?page=", "name": "Caribbeancom" },
+    { "path": "/dm48032/en/caribbeancompr?page=", "name": "Caribbeancom Premium" },
+    { "path": "/dm3710098/en/10musume?page=", "name": "10musume" },
+    { "path": "/dm1342558/en/pacopacomama?page=", "name": "Pacopacomama" },
+    { "path": "/dm136/en/gachinco?page=", "name": "Gachinco" },
+    { "path": "/dm29/en/xxxav?page=", "name": "XXX-AV" },
+    { "path": "/dm24/en/marriedslash?page=", "name": "Married Slash" },
+    { "path": "/dm20/en/naughty4610?page=", "name": "Naughty 4610" },
+    { "path": "/dm22/en/naughty0930?page=", "name": "Naughty 0930" }
   ]
 }
