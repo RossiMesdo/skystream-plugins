@@ -1,46 +1,70 @@
 (function () {
 
+    const BASE = "https://store.externulls.com";
+
     async function getHome(cb) {
 
-        const item = new MultimediaItem({
-            title: "Test Video",
-            url: "test",
-            posterUrl: "https://picsum.photos/300/450"
-        });
+        try {
 
-        cb({
-            success: true,
-            data: {
-                "Featured": [item]
+            const res = await http.get(
+                BASE + "/facts/tag?slug=Japanese&limit=10&offset=0"
+            );
+
+            const json = JSON.parse(res.body);
+
+            const items = [];
+
+            for (const obj of json) {
+
+                const vid = obj.file?.data?.[0];
+
+                if (!vid) continue;
+
+                items.push(
+                    new MultimediaItem({
+                        title: vid.cd_value,
+                        url: JSON.stringify(obj.file),
+                        posterUrl:
+                            "https://thumbs.externulls.com/videos/" +
+                            vid.cd_file +
+                            "/49.webp?size=480x270"
+                    })
+                );
             }
-        });
+
+            cb({
+                success: true,
+                data: {
+                    "Japanese": items
+                }
+            });
+
+        } catch (e) {
+
+            cb({
+                success: false,
+                error: e.toString()
+            });
+        }
     }
 
     async function search(query, cb) {
 
-        const item = new MultimediaItem({
-            title: query,
-            url: "test",
-            posterUrl: "https://picsum.photos/300/450"
-        });
-
         cb({
             success: true,
-            data: [item]
+            data: []
         });
     }
 
     async function load(url, cb) {
 
         const item = new MultimediaItem({
-            title: "Test Video",
+            title: "Beeg Video",
             url: url,
-            description: "This is a test item",
-            posterUrl: "https://picsum.photos/300/450",
             episodes: [
                 new Episode({
-                    name: "Episode 1",
-                    url: "stream1"
+                    name: "Watch",
+                    url: url
                 })
             ]
         });
@@ -53,16 +77,43 @@
 
     async function loadStreams(url, cb) {
 
-        cb({
-            success: true,
-            data: [
-                new StreamResult({
-                    url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-                    quality: 720,
-                    source: "Test Stream"
-                })
-            ]
-        });
+        try {
+
+            const parsed = JSON.parse(url);
+
+            const hls =
+                parsed.hls_resources?.fl_cdn_multi;
+
+            if (!hls) {
+
+                cb({
+                    success: false,
+                    error: "No stream"
+                });
+
+                return;
+            }
+
+            cb({
+                success: true,
+                data: [
+                    new StreamResult({
+                        url:
+                            "https://video.beeg.com/" +
+                            hls,
+                        quality: 720,
+                        source: "Beeg"
+                    })
+                ]
+            });
+
+        } catch (e) {
+
+            cb({
+                success: false,
+                error: e.toString()
+            });
+        }
     }
 
     globalThis.getHome = getHome;
