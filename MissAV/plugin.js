@@ -29,7 +29,7 @@
         return el ? el.textContent.trim() : '';
     }
 
-    // ========== ITEM PARSING ==========
+    // ========== ITEM PARSING (đã thêm chống trùng) ==========
     function parseMainPageItem(el, base) {
         const linkEl = el.querySelector('a[href*="/en/"], a[href*="/dm"]');
         if (!linkEl) return null;
@@ -55,78 +55,39 @@
         const posterUrl = resolveUrl(poster, base);
         if (!posterUrl) return null;
 
-        return new MultimediaItem({
-            title: title,
-            url: url,
-            posterUrl: posterUrl,
-            type: 'nsfw',
-            headers: HEADERS
-        });
+        return { title, url, posterUrl }; // trả về object thô để dễ deduplicate
     }
 
     function parseListItems(doc, base) {
         const items = doc.querySelectorAll('div.grid.grid-cols-2 > div, div.thumbnail.group');
-        return Array.from(items)
-            .map(el => parseMainPageItem(el, base))
-            .filter(Boolean);
-    }
-
-    // ========== GET HOME ==========
-    const CATEGORIES = [
-        { name: "Weekly Hot", path: "/dm169/en/weekly-hot?sort=weekly_views" },
-        { name: "Monthly Hot", path: "/dm263/en/monthly-hot?sort=views" },
-        { name: "Newly Added", path: "/en/new?sort=published_at" },
-        { name: "English Subtitles", path: "/en/english-subtitle" },
-        { name: "Uncensored Leak", path: "/dm628/en/uncensored-leak" },
-        { name: "FC2", path: "/dm150/en/fc2" },
-        { name: "Madou", path: "/dm35/en/madou" },
-        { name: "K-Live", path: "/en/klive" },
-        { name: "C-Live", path: "/en/clive" },
-        { name: "Tokyo Hot", path: "/dm29/en/tokyohot" },
-        { name: "HEYZO", path: "/dm1198483/en/heyzo" },
-        { name: "1pondo", path: "/dm2469695/en/1pondo" },
-        { name: "Caribbeancom", path: "/dm3959622/en/caribbeancom" },
-        { name: "Caribbeancom Premium", path: "/dm48032/en/caribbeancompr" },
-        { name: "10musume", path: "/dm3710098/en/10musume" },
-        { name: "Pacopacomama", path: "/dm1342558/en/pacopacomama" },
-        { name: "Gachinco", path: "/dm136/en/gachinco" },
-        { name: "XXX-AV", path: "/dm29/en/xxxav" },
-        { name: "Married Slash", path: "/dm24/en/marriedslash" },
-        { name: "Naughty 4610", path: "/dm20/en/naughty4610" },
-        { name: "Naughty 0930", path: "/dm22/en/naughty0930" }
-    ];
-
-    async function getHome(cb) {
-        try {
-            const homeData = {};
-
-            const results = await Promise.allSettled(
-                CATEGORIES.map(async cat => {
-                    const separator = cat.path.includes('?') ? '&' : '?';
-                    const url = BASE_URL + cat.path + separator + 'page=1';
-                    const doc = await fetchDoc(url);
-                    const items = parseListItems(doc, BASE_URL);
-                    return { name: cat.name, items: items.slice(0, 30) };
-                })
-            );
-
-            results.forEach(res => {
-                if (res.status === 'fulfilled' && res.value.items.length) {
-                    homeData[res.value.name] = res.value.items;
-                }
-            });
-
-            if (Object.keys(homeData).length === 0) throw new Error('No categories loaded');
-            cb({ success: true, data: homeData });
-        } catch (e) {
-            cb({ success: false, errorCode: 'HOME_ERROR', message: e.message });
+        const seenUrls = new Set();
+        const result = [];
+        for (const el of items) {
+            const item = parseMainPageItem(el, base);
+            if (item && !seenUrls.has(item.url)) {
+                seenUrls.add(item.url);
+                result.push(new MultimediaItem({
+                    title: item.title,
+                    url: item.url,
+                    posterUrl: item.posterUrl,
+                    type: 'nsfw',
+                    headers: HEADERS
+                }));
+            }
         }
+        return result;
     }
 
-    // ========== GET MAIN PAGE (phân trang Newly Added) ==========
+    // ========== GET HOME (bỏ trống để nhường mainPage) ==========
+    async function getHome(cb) {
+        // Tất cả danh mục đã do mainPage đảm nhiệm, trả về rỗng để tránh trùng lặp.
+        cb({ success: true, data: {} });
+    }
+
+    // ========== GET MAIN PAGE (xử lý tất cả danh mục) ==========
     async function getMainPage(page, request, cb) {
         try {
-            const basePath = request.data;
+            const basePath = request.data;  // vd: "/dm169/en/weekly-hot?sort=weekly_views&page="
             const url = BASE_URL + basePath + page;
             const doc = await fetchDoc(url);
             const items = parseListItems(doc, BASE_URL);
@@ -134,11 +95,11 @@
                 success: true,
                 data: {
                     items: [{
-                        name: "Newly Added",
+                        name: request.name,
                         list: items,
                         isHorizontalImages: true
                     }],
-                    hasNext: items.length > 0   // luôn load tiếp nếu có ít nhất 1 item
+                    hasNext: items.length > 0   // tiếp tục nếu còn ít nhất 1 phim
                 }
             });
         } catch (e) {
@@ -146,7 +107,7 @@
         }
     }
 
-    // ========== SEARCH ==========
+    // ========== SEARCH (giữ nguyên) ==========
     async function search(query, cb) {
         try {
             const url = BASE_URL + '/en/search/' + encodeURIComponent(query);
@@ -158,7 +119,7 @@
         }
     }
 
-    // ========== LOAD (chi tiết) ==========
+    // ========== LOAD (mô tả đầy đủ, ép kiểu Episode) ==========
     async function load(url, cb) {
         try {
             const doc = await fetchDoc(url);
@@ -189,21 +150,21 @@
                 actors.push(new Actor({ name: a.textContent.trim() }));
             });
 
-            // Description: meta description hoặc nội dung bài viết
+            // Description – lấy toàn bộ từ div chuyên dụng, tránh cắt cụt
             let description = '';
-            const descMeta = doc.querySelector('meta[name="description"]');
-            if (descMeta) {
-                description = descMeta.getAttribute('content') || '';
+            const descDiv = doc.querySelector('div.movie-desc, div.description, div.entry-content');
+            if (descDiv) {
+                description = descDiv.textContent.trim();
             }
             if (!description) {
-                const descDiv = doc.querySelector('div.entry-content, div.description, div.movie-desc');
-                if (descDiv) description = descDiv.textContent.trim();
+                const descMeta = doc.querySelector('meta[name="description"]');
+                if (descMeta) description = descMeta.getAttribute('content') || '';
             }
 
-            // Tạo Episode để hiển thị nút Play
+            // Tạo Episode
             const episode = new Episode({
                 name: title,
-                url: url,                     // truyền thẳng URL phim cho loadStreams
+                url: url,
                 posterUrl: posterUrl,
                 description: description
             });
@@ -225,18 +186,39 @@
         }
     }
 
-    // ========== LOAD STREAMS ==========
+    // ========== LOAD STREAMS (tích hợp bộ unpacker dự phòng) ==========
+    // Bộ giải mã P.A.C.K.E.R. đơn giản (fallback)
+    function unpackJS(packed) {
+        // Tìm pattern: eval(function(p,a,c,k,e,d){...})
+        const match = packed.match(/\}\('([^']*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)\)/);
+        if (!match) return packed;
+        const data = match[1];
+        const radix = parseInt(match[2]);
+        const count = parseInt(match[3]);
+        const words = match[4].split('|');
+        // Thay thế các từ khóa
+        let unpacked = data.replace(/\b\w+\b/g, function(word) {
+            const index = parseInt(word, radix);
+            return words[index] || word;
+        });
+        return unpacked;
+    }
+
     async function loadStreams(dataUrl, cb) {
         try {
             const html = await fetchRaw(dataUrl);
             let unpacked = html;
-            // Thử dùng getAndUnpack (native), nếu có lỗi hoặc không hoạt động thì tự unpack thủ công
+
+            // Dùng getAndUnpack nếu có
             if (typeof getAndUnpack === 'function') {
                 try {
                     unpacked = getAndUnpack(html);
                 } catch (e) {
-                    // fallback: tìm trực tiếp trong html
+                    // fallback sang unpack thủ công
+                    unpacked = unpackJS(html);
                 }
+            } else {
+                unpacked = unpackJS(html);
             }
 
             // Tìm playlist ID
@@ -245,7 +227,6 @@
             if (match) {
                 playlistId = match[1];
             } else {
-                // Thử mẫu khác: surrit.com/.../playlist.m3u8
                 const match2 = html.match(/surrit\.com\/([a-f0-9\-]{36})\/playlist\.m3u8/);
                 if (match2) playlistId = match2[1];
             }
