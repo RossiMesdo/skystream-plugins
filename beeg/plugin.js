@@ -44,7 +44,7 @@
 
     async function getHome(cb) {
         try {
-            // Định nghĩa các trang danh mục như trong beeg.kt
+            // Định nghĩa các trang danh mục
             const categories = {
                 "Main Page": `${API_BEEG}/facts/tag?id=27173&limit=48&offset=0`,
                 "Wow Girls": `${API_BEEG}/facts/tag?slug=WowGirls&limit=48&offset=0`,
@@ -88,7 +88,7 @@
 
     async function search(query, cb) {
         try {
-            // Trong source kt, tính năng search hoạt động chủ yếu để tìm tên các "Actors"
+            // Tìm tên các "Actors"
             const res = await http_get(`${API_BEEG}/tag/recommends?type=person&slug=index`, HEADERS);
             const players = JSON.parse(res.body || "[]");
             
@@ -132,20 +132,20 @@
                     headers: HEADERS
                 });
 
-                // Nếu URL là dữ liệu của 1 video trực tiếp (từ trang Home)
+                // Cấu trúc item trả về
                 const item = new MultimediaItem({
                     title: data.title || "Video",
                     url: url, 
                     posterUrl: data.poster,
                     type: "movie",
-                    description: data.title || "Không có thông tin tóm tắt cho video này.", // THÊM DESCRIPTION
-                    episodes: [singleEpisode], // ĐƯA VÀO DANH SÁCH EPISODES
+                    description: data.title || "Không có thông tin tóm tắt cho video này.",
+                    episodes: [singleEpisode],
                     headers: HEADERS
                 });
                 return cb({ success: true, data: item });
 
             } else if (data.type === "actor") {
-                // Nếu URL là một diễn viên (từ trang Search), ta sẽ load các video của họ như list episodes
+                // Load danh sách video của diễn viên
                 const epsRes = await http_get(`${API_BEEG}/tag/videos/${data.slug}?limit=48&offset=0`, HEADERS);
                 const videos = JSON.parse(epsRes.body || "[]");
                 
@@ -179,7 +179,7 @@
                     url: url,
                     posterUrl: data.poster,
                     type: "tv",
-                    description: `Danh sách video của ${data.name}`, // THÊM DESCRIPTION CHO ACTOR
+                    description: `Danh sách video của ${data.name}`,
                     episodes: episodes,
                     headers: HEADERS
                 });
@@ -195,24 +195,44 @@
     async function loadStreams(url, cb) {
         try {
             const data = JSON.parse(url);
-            let hlsMulti = data.hls;
+            let hlsMulti = null;
             
-            // Fetch thêm chi tiết nếu ban đầu object không có sẵn link HLS
-            if (!hlsMulti && data.id) {
-                const res = await http_get(`${API_BEEG}/facts/file/${data.id}`, HEADERS);
-                const root = JSON.parse(res.body || "{}");
-                
-                hlsMulti = root.file?.hls_resources?.fl_cdn_multi 
-                        || root.fc_facts?.[0]?.hls_resources?.fl_cdn_multi;
+            // LUÔN LUÔN gọi API mới nhất để lấy link stream nhằm tránh lỗi hết hạn Token (buffering)
+            if (data.id) {
+                try {
+                    const res = await http_get(`${API_BEEG}/facts/file/${data.id}`, HEADERS);
+                    const root = JSON.parse(res.body || "{}");
+                    hlsMulti = root.file?.hls_resources?.fl_cdn_multi 
+                            || root.fc_facts?.[0]?.hls_resources?.fl_cdn_multi;
+                } catch (apiError) {
+                    // Nếu lỗi mạng tạm thời, ta bỏ qua để dùng lại link cũ (nếu có)
+                }
+            }
+
+            // Fallback (dự phòng): nếu API thất bại, thử dùng lại link HLS cũ đã lưu lúc nãy
+            if (!hlsMulti) {
+                hlsMulti = data.hls;
             }
 
             if (hlsMulti) {
+                // Đảm bảo không bị lỗi 2 dấu gạch chéo // khi nối chuỗi
+                const path = hlsMulti.startsWith("/") ? hlsMulti : `/${hlsMulti}`;
+                
+                // CHỈ GIỮ LẠI HEADER CẦN THIẾT CHO PLAYER
+                // Bỏ đi Accept: application/json vì nó khiến CDN video chặn kết nối
+                const streamHeaders = {
+                    "User-Agent": HEADERS["User-Agent"],
+                    "Referer": HEADERS["Referer"],
+                    "Origin": HEADERS["Origin"]
+                };
+
                 const stream = new StreamResult({
-                    url: `https://video.beeg.com/${hlsMulti}`,
-                    source: "Beeg HLS",
-                    quality: 1080, // Có thể đọc trong M3U8 list
-                    headers: HEADERS
+                    url: `https://video.beeg.com${path}`,
+                    source: "Beeg Video",
+                    quality: "Auto", // M3U8 sẽ tự động nhảy chất lượng
+                    headers: streamHeaders
                 });
+                
                 cb({ success: true, data: [stream] });
             } else {
                 cb({ success: false, errorCode: "STREAM_ERROR", message: "Stream not found" });
