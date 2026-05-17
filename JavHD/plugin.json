@@ -7,7 +7,4 @@
   "authors": ["Lord"],
   "languages": ["en", "ja"],
   "categories": ["NSFW", "Movie", "TV"],
-  "mainPage": [
-    { "path": "/page/", "name": "Main Page" }
-  ]
 }
