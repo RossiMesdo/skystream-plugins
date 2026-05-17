@@ -21,7 +21,6 @@
         return String(str || '').replace(/^JAV HD\s*/i, '').trim();
     }
 
-    // Tạo MultimediaItem từ element HTML
     function itemToMedia(el) {
         const content = el.querySelector('div.item-img > a') || el.querySelector('a');
         if (!content) return null;
@@ -47,9 +46,7 @@
         });
     }
 
-    // Lấy tất cả items từ document
     function extractItems(doc) {
-        // Selector chính từ Kotlin
         let items = Array.from(doc.querySelectorAll('div.col-md-3.col-sm-6.col-xs-6.item.responsive-height.post'));
         if (items.length === 0) {
             items = Array.from(doc.querySelectorAll('div[class*="item"][class*="post"]'));
@@ -60,46 +57,48 @@
         return items.map(el => itemToMedia(el)).filter(Boolean);
     }
 
-    // Lấy danh sách video URLs từ trang (ưu tiên iframe, script, download)
     function getVideoUrls(doc, rawHtml) {
-        const links = [];
+        const links = new Set();
 
-        // 1. Iframe src
+        // 1. All iframes
         doc.querySelectorAll('iframe').forEach(iframe => {
             const src = iframe.getAttribute('src');
-            if (src && !src.startsWith('https://a.realsrv.com')) links.push(src);
+            if (src && !src.startsWith('https://a.realsrv.com')) links.add(src);
         });
 
-        // 2. Tìm trong script: file:, source:, video_url, v.v.
+        // 2. Video / source tags
+        doc.querySelectorAll('video source, video').forEach(el => {
+            const src = el.getAttribute('src');
+            if (src) links.add(src);
+        });
+
+        // 3. Script patterns
+        const text = rawHtml || '';
         const patterns = [
-            /(?:file|source|src|video_url)\s*:\s*"(https?:\/\/[^"]+\.(?:m3u8|mp4|mkv|avi|flv|webm|m3u)[^"]*)"/gi,
-            /(?:file|source|src|video_url)\s*=\s*"(https?:\/\/[^"]+\.(?:m3u8|mp4|mkv|avi|flv|webm|m3u)[^"]*)"/gi,
+            /(?:file|source|src|video_url|url)\s*:\s*"(https?:\/\/[^"]+\.(?:m3u8|mp4|mkv|avi|flv|webm|m3u)[^"]*)"/gi,
+            /(?:file|source|src|video_url|url)\s*=\s*"(https?:\/\/[^"]+\.(?:m3u8|mp4|mkv|avi|flv|webm|m3u)[^"]*)"/gi,
             /"(https?:\/\/[^"]*\.(?:m3u8|mp4|mkv)[^"]*)"/gi,
             /source\s+src\s*=\s*"(https?:\/\/[^"]+)"/gi
         ];
-        const text = rawHtml || '';
         patterns.forEach(regex => {
             let match;
-            while ((match = regex.exec(text)) !== null) links.push(match[1]);
+            while ((match = regex.exec(text)) !== null) links.add(match[1]);
         });
 
-        // 3. Download link nếu có
-        const downloadLink = doc.querySelector('a.download, a[href*="download"], a[href*="dl"]');
-        if (downloadLink) {
-            const href = downloadLink.getAttribute('href');
-            if (href && !links.includes(href)) links.push(href);
-        }
+        // 4. Download links
+        doc.querySelectorAll('a[href*="download"], a[href*="dl"], a.btn-primary').forEach(a => {
+            const href = a.getAttribute('href');
+            if (href && href.startsWith('http')) links.add(href);
+        });
 
-        // Lọc và khử trùng
-        return [...new Set(links.filter(l => l && l.startsWith('http')))];
+        return Array.from(links).filter(l => l && l.startsWith('http'));
     }
 
-    // Lấy danh mục từ menu thực tế của trang
     async function getMenuCategories() {
         try {
             const doc = await fetchDoc(BASE_URL);
             const menuLinks = doc.querySelectorAll(
-                'ul.navbar-nav a, div.menu a, nav a, .menu-item a, li.menu-item a, a[href*="/category/"], a[href*="/tag/"]'
+                'ul.navbar-nav a, div.menu a, nav a, .menu-item a, li a[href*="/category/"], a[href*="/tag/"]'
             );
             const cats = [];
             for (const a of menuLinks) {
@@ -109,36 +108,35 @@
                     cats.push({ name: text, path: href });
                 }
             }
-            // Nếu có nhiều, trả về tối đa 8 mục để dashboard gọn
-            return cats.slice(0, 8);
-        } catch {
-            // Fallback: một vài category phổ biến dựa trên cấu trúc thực tế
-            return [
-                { name: "Japanese", path: "/category/japanese/" },
-                { name: "Big Tits", path: "/category/big-tits/" },
-                { name: "Anal", path: "/category/anal/" },
-                { name: "MILF", path: "/category/milf/" },
-                { name: "Lesbian", path: "/category/lesbian/" },
-                { name: "Creampie", path: "/category/creampie/" },
-                { name: "Blowjob", path: "/category/blowjob/" },
-                { name: "Hardcore", path: "/category/hardcore/" }
-            ];
-        }
+            if (cats.length > 0) return cats.slice(0, 10);
+        } catch (e) {}
+
+        return [
+            { name: "Japanese", path: "/category/japanese/" },
+            { name: "Big Tits", path: "/category/big-tits/" },
+            { name: "Anal", path: "/category/anal/" },
+            { name: "MILF", path: "/category/milf/" },
+            { name: "Lesbian", path: "/category/lesbian/" },
+            { name: "Creampie", path: "/category/creampie/" },
+            { name: "Blowjob", path: "/category/blowjob/" },
+            { name: "Hardcore", path: "/category/hardcore/" },
+            { name: "Squirting", path: "/category/squirting/" },
+            { name: "Russian", path: "/category/russian/" }
+        ];
     }
 
-    // ========== GET HOME (dashboard) ==========
+    // ========== GET HOME ==========
     async function getHome(cb) {
         try {
             const homeData = {};
             const categories = await getMenuCategories();
 
-            // Lấy từng category song song
             const results = await Promise.allSettled(
                 categories.map(async cat => {
                     const url = BASE_URL + cat.path;
                     const doc = await fetchDoc(url);
                     const items = extractItems(doc);
-                    return { name: cat.name, items: items.slice(0, 48) };
+                    return { name: cat.name, items: items.slice(0, 60) };
                 })
             );
 
@@ -148,7 +146,6 @@
                 }
             });
 
-            // Thêm Main Page (load từ /page/1)
             const mainDoc = await fetchDoc(BASE_URL + '/page/1');
             const mainItems = extractItems(mainDoc);
             if (mainItems.length) homeData["Main Page"] = mainItems;
@@ -163,7 +160,6 @@
     // ========== MAIN PAGE (phân trang) ==========
     async function getMainPage(page, request, cb) {
         try {
-            // request.data chứa path từ mainPage config, ví dụ "/page/"
             const basePath = request.data || "/page/";
             const url = page <= 1 ? BASE_URL : `${BASE_URL}${basePath}${page}`;
             const doc = await fetchDoc(url);
@@ -186,34 +182,34 @@
 
     // ========== SEARCH ==========
     async function search(query, cb) {
-        try {
-            const doc = await fetchDoc(`${BASE_URL}/?s=${encodeURIComponent(query)}`);
-            let items = Array.from(doc.querySelectorAll('div.item.responsive-height.col-md-4.col-sm-6.col-xs-6'));
-            if (items.length === 0) {
-                items = Array.from(doc.querySelectorAll('div[class*="item"][class*="post"]'));
-            }
-            const results = items.map(el => itemToMedia(el)).filter(Boolean);
-            cb({ success: true, data: results });
-        } catch (e) {
-            cb({ success: false, errorCode: 'SEARCH_ERROR', message: e.message });
+        const endpoints = [
+            `/?s=${encodeURIComponent(query)}`,
+            `/search/${encodeURIComponent(query)}`,
+            `/page/1/?s=${encodeURIComponent(query)}`
+        ];
+        let items = [];
+        for (const ep of endpoints) {
+            try {
+                const doc = await fetchDoc(BASE_URL + ep);
+                items = extractItems(doc);
+                if (items.length > 0) break;
+            } catch (e) {}
         }
+        cb({ success: true, data: items });
     }
 
-    // ========== LOAD (chi tiết) ==========
+    // ========== LOAD ==========
     async function load(url, cb) {
         try {
             const rawHtml = await fetchRaw(url);
             const doc = await parseHtml(rawHtml);
 
-            // Poster
             const posterImg = doc.querySelector('div.video-details div.post-entry img');
             const poster = posterImg?.getAttribute('src') || posterImg?.getAttribute('data-src') || '';
 
-            // Title
             const captionP = doc.querySelector('p.wp-caption-text');
             const title = cleanTitle(captionP?.textContent?.trim() || doc.querySelector('h1')?.textContent?.trim() || 'No Title');
 
-            // Description
             let description = null;
             const descPs = doc.querySelectorAll('div.video-details div.post-entry p');
             for (const p of descPs) {
@@ -224,7 +220,6 @@
                 }
             }
 
-            // Year
             const dateSpan = doc.querySelector('span.date');
             let year = null;
             if (dateSpan) {
@@ -232,7 +227,6 @@
                 if (nums.length >= 4) year = parseInt(nums.slice(-4));
             }
 
-            // Tags
             const tags = [];
             doc.querySelectorAll('span.meta').forEach(meta => {
                 const captionEl = meta.querySelector('span.meta-info');
@@ -244,12 +238,11 @@
                 }
             });
 
-            // Recommendations
             const recs = Array.from(doc.querySelectorAll('div.latest-wrapper div.item.active > div'))
                 .map(el => itemToMedia(el))
                 .filter(Boolean);
 
-            // Kiểm tra scene pagination
+            // Kiểm tra scene pagination → series
             const sceneLis = doc.querySelectorAll('ul.pagination.post-tape > li');
             if (sceneLis.length > 0) {
                 const episodes = [];
@@ -281,26 +274,32 @@
                 }
             }
 
-            // Movie (single video)
-            const videoUrls = getVideoUrls(doc, rawHtml);
-            // Nếu không tìm thấy gì, thử dùng chính url (có thể là embed)
+            // Movie: tạo một Episode duy nhất để hiển thị nút Play
+            let videoUrls = getVideoUrls(doc, rawHtml);
             if (videoUrls.length === 0) {
-                // fallback: lấy iframe đầu tiên hoặc bất kỳ link nào
-                const firstIframe = doc.querySelector('iframe');
-                if (firstIframe) {
-                    const src = firstIframe.getAttribute('src');
-                    if (src) videoUrls.push(src);
-                }
+                // Fallback: quét tất cả link có dạng embed
+                doc.querySelectorAll('a[href*="embed"], a[href*="player"]').forEach(a => {
+                    const href = a.getAttribute('href');
+                    if (href && !videoUrls.includes(href)) videoUrls.push(href);
+                });
             }
+            const episode = new Episode({
+                name: "Full Video",
+                url: JSON.stringify(videoUrls),
+                posterUrl: poster,
+                description: description
+            });
+
             cb({ success: true, data: new MultimediaItem({
                 title,
-                url: JSON.stringify(videoUrls),  // gửi cho loadStreams
+                url,
                 posterUrl: poster,
                 type: 'movie',
                 description,
                 year,
                 tags,
                 recommendations: recs,
+                episodes: [episode],   // ← đảm bảo nút Play không bị xám
                 headers: HEADERS
             })});
         } catch (e) {
@@ -314,7 +313,6 @@
             const links = JSON.parse(dataUrl);
             const streams = [];
             for (let link of links) {
-                // Rewrite domain nếu cần
                 if (link.startsWith('https://javhdfree.icu')) {
                     const noProto = link.replace('https://', '');
                     const idx = noProto.indexOf('/') + 1;
@@ -323,7 +321,6 @@
                     link = link.replace('viewsb.com', 'watchsb.com');
                 }
 
-                // Nếu có loadExtractor (phiên bản mới), dùng nó
                 if (typeof loadExtractor === 'function') {
                     const extracted = await loadExtractor(link);
                     if (Array.isArray(extracted)) {
@@ -333,7 +330,6 @@
                         });
                     }
                 } else {
-                    // Không có extractor, trả trực tiếp stream
                     streams.push(new StreamResult({
                         url: link,
                         source: 'JavHD',
@@ -342,7 +338,6 @@
                     }));
                 }
             }
-            // Loại trùng lặp
             const seen = new Set();
             const finalStreams = streams.filter(s => {
                 const key = s.url + '|' + s.source;
@@ -356,7 +351,7 @@
         }
     }
 
-    // ========== EXPORT ==========
+    // Export
     globalThis.getHome = getHome;
     globalThis.getMainPage = getMainPage;
     globalThis.search = search;
