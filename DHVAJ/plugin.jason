@@ -1,9 +1,9 @@
 {
-  "packageName": "dev.lord.DHVAJ",
-  "name": "DHVAJ",
+  "packageName": "dev.lord.javHD",
+  "name": "javHD",
   "version": 1,
-  "baseUrl": "https://javhd.icu",
-  "description": "DHVAJ plugin",
+  "baseUrl": "https://javHD.icu",
+  "description": "javHD plugin",
   "authors": [
     "Lord"
   ],
@@ -14,4 +14,3 @@
     "Movie"
   ]
 }
-
