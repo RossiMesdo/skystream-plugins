@@ -1,93 +1,140 @@
 (function () {
 
+    const BASE_URL = "https://store.externulls.com";
+
     async function getHome(cb) {
 
-        const res = await http.get(
-            "https://store.externulls.com/facts/tag?slug=Japanese&limit=10&offset=0"
-        );
+        try {
 
-        const json = JSON.parse(res.body);
+            const res = await http_get(BASE_URL + "/api/video/random");
 
-        const items = [];
+            const data = JSON.parse(res.body);
 
-        for (const entry of json) {
+            const items = [];
 
-            if (!entry.file || !entry.file.data) continue;
+            for (const vid of data.data.slice(0, 20)) {
 
-            for (const vid of entry.file.data) {
-
-                items.push(
-                    new MultimediaItem({
-                        title: vid.cd_value,
-                        url: JSON.stringify(entry.file),
-                        posterUrl:
-                            "https://thumbs.externulls.com/videos/" +
-                            vid.cd_file +
-                            "/0.webp"
-                    })
-                );
+                items.push(new MultimediaItem({
+                    title: vid.title || "No title",
+                    url: String(vid.id),
+                    posterUrl: vid.preview_url || vid.thumbnail || ""
+                }));
             }
+
+            cb({
+                success: true,
+                data: {
+                    "Featured": items
+                }
+            });
+
+        } catch (e) {
+
+            cb({
+                success: false,
+                errorCode: "HOME_ERROR",
+                message: e.toString()
+            });
         }
-
-        cb({
-            success: true,
-            data: {
-                "Beeg": items
-            }
-        });
     }
 
     async function search(query, cb) {
 
-        cb({
-            success: true,
-            data: []
-        });
+        try {
+
+            const res = await http_get(
+                BASE_URL + "/api/video/search/" + encodeURIComponent(query)
+            );
+
+            const data = JSON.parse(res.body);
+
+            const items = [];
+
+            for (const vid of data.data) {
+
+                items.push(new MultimediaItem({
+                    title: vid.title || "No title",
+                    url: String(vid.id),
+                    posterUrl: vid.preview_url || vid.thumbnail || ""
+                }));
+            }
+
+            cb({
+                success: true,
+                data: items
+            });
+
+        } catch (e) {
+
+            cb({
+                success: false,
+                errorCode: "SEARCH_ERROR",
+                message: e.toString()
+            });
+        }
     }
 
     async function load(url, cb) {
 
-        const data = JSON.parse(url);
+        try {
 
-        const title = data.data[0].cd_value;
+            const res = await http_get(BASE_URL + "/api/video/" + url);
 
-        const item = new MultimediaItem({
-            title: title,
-            url: url,
-            posterUrl:
-                "https://thumbs.externulls.com/videos/" +
-                data.data[0].cd_file +
-                "/0.webp",
-            episodes: [
-                new Episode({
-                    name: title,
-                    url: url
-                })
-            ]
-        });
+            const vid = JSON.parse(res.body).data;
 
-        cb({
-            success: true,
-            data: item
-        });
+            const item = new MultimediaItem({
+                title: vid.title || "No title",
+                url: url,
+                description: vid.description || "",
+                posterUrl: vid.preview_url || vid.thumbnail || "",
+                episodes: [
+                    new Episode({
+                        name: "Video",
+                        url: vid.hls_resources?.["fl_cdn_720"] ||
+                             vid.hls_resources?.["fl_cdn_480"] ||
+                             vid.file
+                    })
+                ]
+            });
+
+            cb({
+                success: true,
+                data: item
+            });
+
+        } catch (e) {
+
+            cb({
+                success: false,
+                errorCode: "LOAD_ERROR",
+                message: e.toString()
+            });
+        }
     }
 
     async function loadStreams(url, cb) {
 
-        const data = JSON.parse(url);
+        try {
 
-        const hls = data.hls_resources.fl_cdn_multi;
+            cb({
+                success: true,
+                data: [
+                    new StreamResult({
+                        url: url,
+                        quality: 720,
+                        source: "Beeg"
+                    })
+                ]
+            });
 
-        cb({
-            success: true,
-            data: [
-                new StreamResult({
-                    url: "https://video.beeg.com/" + hls,
-                    quality: 720,
-                    source: "Beeg"
-                })
-            ]
-        });
+        } catch (e) {
+
+            cb({
+                success: false,
+                errorCode: "STREAM_ERROR",
+                message: e.toString()
+            });
+        }
     }
 
     globalThis.getHome = getHome;
