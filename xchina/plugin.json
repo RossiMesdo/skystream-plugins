@@ -1,0 +1,16 @@
+{
+  "packageName": "dev.lord.xchina",
+  "name": "xchina",
+  "version": 1,
+  "baseUrl": "https://en.xchina.co",
+  "description": "xchina plugin",
+  "authors": [
+    "Lord"
+  ],
+  "languages": [
+    "en"
+  ],
+  "categories": [
+    "Movie"
+  ]
+}
