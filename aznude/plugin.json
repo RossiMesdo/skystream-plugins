@@ -1,0 +1,16 @@
+{
+  "packageName": "dev.lord.aznude",
+  "name": "Beeg",
+  "version": 1,
+  "baseUrl": "https://aznude.com",
+  "description": "aznude plugin",
+  "authors": [
+    "Lord"
+  ],
+  "languages": [
+    "en"
+  ],
+  "categories": [
+    "Movie"
+  ]
+}
