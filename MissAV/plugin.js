@@ -103,19 +103,40 @@
         { name: "Naughty 0930", path: "/dm22/en/naughty0930" }
     ];
 
+    // ========== LẤY NHIỀU TRANG ĐỂ CÓ 200 VIDEO ==========
+    async function fetchCategoryVideos(cat) {
+        const separator = cat.path.includes('?') ? '&' : '?';
+        const pages = [1,2,3,4,5,6,7]; // 7 trang ~ 210 video
+        const pagePromises = pages.map(page => {
+            const url = BASE_URL + cat.path + separator + 'page=' + page;
+            return fetchDoc(url).catch(() => null);
+        });
+        const docs = await Promise.all(pagePromises);
+        const allItems = [];
+        const seenUrls = new Set();
+        for (const doc of docs) {
+            if (!doc) continue;
+            const items = parseListItems(doc, BASE_URL);
+            for (const item of items) {
+                if (!seenUrls.has(item.url)) {
+                    seenUrls.add(item.url);
+                    allItems.push(item);
+                    if (allItems.length >= 200) break;
+                }
+            }
+            if (allItems.length >= 200) break;
+        }
+        return allItems;
+    }
+
     // ========== GET HOME ==========
     async function getHome(cb) {
         try {
             const homeData = {};
-
-            // Lấy song song tất cả category (chỉ page=1, giới hạn 30 video mỗi loại)
             const results = await Promise.allSettled(
                 CATEGORIES.map(async cat => {
-                    const separator = cat.path.includes('?') ? '&' : '?';
-                    const url = BASE_URL + cat.path + separator + 'page=1';
-                    const doc = await fetchDoc(url);
-                    const items = parseListItems(doc, BASE_URL);
-                    return { name: cat.name, items: items.slice(0, 30) };
+                    const items = await fetchCategoryVideos(cat);
+                    return { name: cat.name, items };
                 })
             );
 
@@ -152,11 +173,9 @@
             if (!titleEl) throw new Error('Title not found');
             const title = titleEl.textContent.trim();
 
-            // Poster
             const posterMeta = doc.querySelector('meta[property="og:image"]');
             const posterUrl = posterMeta ? resolveUrl(posterMeta.getAttribute('content'), BASE_URL) : '';
 
-            // Year
             const timeEl = doc.querySelector('time');
             let year = null;
             if (timeEl) {
@@ -165,17 +184,14 @@
                 if (isNaN(year)) year = null;
             }
 
-            // Tags
             const tags = [];
             doc.querySelectorAll('div.text-secondary:contains(genre) a').forEach(a => tags.push(a.textContent.trim()));
 
-            // Actresses
             const actors = [];
             doc.querySelectorAll('div.text-secondary:contains(actress) a').forEach(a => {
                 actors.push(new Actor({ name: a.textContent.trim() }));
             });
 
-            // Description
             let description = '';
             const descDiv = doc.querySelector('div.movie-desc, div.description, div.entry-content');
             if (descDiv) {
@@ -186,10 +202,9 @@
                 if (descMeta) description = descMeta.getAttribute('content') || '';
             }
 
-            // Tạo Episode để hiển thị nút Play
             const episode = new Episode({
                 name: title,
-                url: url,   // truyền URL phim cho loadStreams
+                url: url,
                 posterUrl: posterUrl,
                 description: description
             });
@@ -211,20 +226,33 @@
         }
     }
 
-    // ========== LOAD STREAMS ==========
-    // Bộ giải mã P.A.C.K.E.R. thủ công
-    function unpackJS(packed) {
-        const match = packed.match(/\}\('([^']*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)\)/);
-        if (!match) return packed;
-        const data = match[1];
-        const radix = parseInt(match[2]);
-        const count = parseInt(match[3]);
-        const words = match[4].split('|');
-        let unpacked = data.replace(/\b\w+\b/g, function(word) {
-            const index = parseInt(word, radix);
-            return words[index] || word;
-        });
-        return unpacked;
+    // ========== LOAD STREAMS (cải tiến mạnh mẽ) ==========
+    // Hàm unpacker dự phòng hỗ trợ nhiều định dạng P.A.C.K.E.R
+    function unpackAnyJS(js) {
+        // Mẫu 1: eval(function(p,a,c,k,e,d){...})
+        let match = js.match(/\}\('([^']*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)\)/);
+        if (match) {
+            const data = match[1];
+            const radix = parseInt(match[2]);
+            const words = match[4].split('|');
+            return data.replace(/\b\w+\b/g, w => {
+                const idx = parseInt(w, radix);
+                return words[idx] || w;
+            });
+        }
+        // Mẫu 2: dạng đơn giản khác
+        match = js.match(/function\s*\(p,a,c,k,e,d\)\s*\{.*\}\('([^']*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)\)/);
+        if (match) {
+            const data = match[1];
+            const radix = parseInt(match[2]);
+            const words = match[4].split('|');
+            return data.replace(/\b\w+\b/g, w => {
+                const idx = parseInt(w, radix);
+                return words[idx] || w;
+            });
+        }
+        // Không unpack được, trả về gốc
+        return js;
     }
 
     async function loadStreams(dataUrl, cb) {
@@ -232,25 +260,47 @@
             const html = await fetchRaw(dataUrl);
             let unpacked = html;
 
-            // Dùng getAndUnpack nếu có, nếu lỗi thì tự unpack
+            // Dùng getAndUnpack nếu có
             if (typeof getAndUnpack === 'function') {
                 try {
                     unpacked = getAndUnpack(html);
                 } catch (e) {
-                    unpacked = unpackJS(html);
+                    unpacked = unpackAnyJS(html);
                 }
             } else {
-                unpacked = unpackJS(html);
+                unpacked = unpackAnyJS(html);
             }
 
-            // Tìm playlist ID
+            // Tìm UUID bằng regex mạnh: UUID chuẩn hoặc dạng hex 32-36 ký tự trong đường dẫn
             let playlistId = null;
-            const match = unpacked.match(/\/([a-f0-9\-]{36})\//);
-            if (match) {
-                playlistId = match[1];
-            } else {
-                const match2 = html.match(/surrit\.com\/([a-f0-9\-]{36})\/playlist\.m3u8/);
-                if (match2) playlistId = match2[1];
+            const patterns = [
+                /\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\//i,   // UUID chuẩn
+                /surrit\.com\/([a-f0-9\-]{36})\/playlist\.m3u8/i,
+                /playlist\/([a-f0-9\-]{36})/i,
+                /([a-f0-9]{32})/i,                                                      // 32 hex
+                /\/([a-f0-9\-]{36})\//i                                                  // dạng cũ
+            ];
+
+            for (const regex of patterns) {
+                const m1 = unpacked.match(regex);
+                if (m1) { playlistId = m1[1]; break; }
+                const m2 = html.match(regex);
+                if (m2) { playlistId = m2[1]; break; }
+            }
+
+            // Thử tìm trực tiếp link m3u8 trong HTML
+            if (!playlistId) {
+                const m3u8Match = html.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/i);
+                if (m3u8Match) {
+                    return cb({ success: true, data: [
+                        new StreamResult({
+                            url: m3u8Match[1],
+                            source: 'MissAV',
+                            quality: 1080,
+                            headers: { 'Referer': BASE_URL + '/' }
+                        })
+                    ]});
+                }
             }
 
             if (!playlistId) throw new Error('Playlist ID not found');
