@@ -1,0 +1,16 @@
+{
+  "packageName": "dev.lord.DHVAJ",
+  "name": "DHVAJ",
+  "version": 1,
+  "baseUrl": "https://javhd.icu",
+  "description": "DHVAJ plugin",
+  "authors": [
+    "Lord"
+  ],
+  "languages": [
+    "en"
+  ],
+  "categories": [
+    "Movie"
+  ]
+}
