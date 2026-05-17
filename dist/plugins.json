@@ -20,11 +20,11 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javHD.sky"
   },
   {
-    "packageName": "dev.lord.MissAV",
+    "packageName": "dev.lord.missav",
     "name": "MissAV",
     "version": 1,
-    "baseUrl": "https://MissAV.live",
-    "description": "MissAV plugin",
+    "baseUrl": "https://missav.live",
+    "description": "MissAV plugin for SkyStream",
     "authors": [
       "Lord"
     ],
@@ -32,9 +32,16 @@
       "en"
     ],
     "categories": [
+      "NSFW",
       "Movie"
     ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.MissAV.sky"
+    "mainPage": [
+      {
+        "path": "/en/new?sort=published_at&page=",
+        "name": "Newly Added"
+      }
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.missav.sky"
   },
   {
     "packageName": "dev.akash.stars.anichi",
