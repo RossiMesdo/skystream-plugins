@@ -1,216 +1,199 @@
 (function() {
+    const BASE_URL = typeof manifest !== 'undefined' && manifest.baseUrl ? manifest.baseUrl : "https://javhd.icu";
     const HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     };
 
-    // Helper: lấy text sạch từ parse_html object
-    function getText(el) { return el ? el.text.trim() : ''; }
-    // Helper: lấy giá trị thuộc tính (href, src, title...)
-    function getAttrVal(el) { return el ? el.attr : null; }
+    // Helpers sử dụng parse_html(html, selector, attribute) -> [{attr, text}]
+    function getFirstAttr(html, selector, attrName) {
+        const found = parse_html(html, selector, attrName);
+        return found.length > 0 ? found[0].attr : null;
+    }
+
+    function getFirstText(html, selector) {
+        const found = parse_html(html, selector);
+        return found.length > 0 ? found[0].text.trim() : null;
+    }
+
+    function getAllAttr(html, selector, attrName) {
+        return parse_html(html, selector, attrName).map(el => el.attr).filter(Boolean);
+    }
 
     function cleanTitle(str) {
         return str.replace(/^JAV HD\s*/i, '').trim();
     }
 
-    // Lấy href của thẻ a đầu tiên trong khối HTML
-    function getHref(blockHtml) {
-        const as = parse_html(blockHtml, 'a', 'href');
-        if (!as || as.length === 0) return null;
-        return getAttrVal(as[0]);
-    }
+    // Xây MultimediaItem từ block HTML (dùng cho search & home)
+    function blockToItem(blockHtml) {
+        const link = getFirstAttr(blockHtml, 'a', 'href');
+        if (!link) return null;
 
-    // Lấy src của img đầu tiên
-    function getImgSrc(blockHtml) {
-        const imgs = parse_html(blockHtml, 'img', 'src');
-        if (!imgs || imgs.length === 0) return null;
-        return getAttrVal(imgs[0]);
-    }
+        // Lấy title: ưu tiên title attr của thẻ a, nếu không thì alt của img
+        let title = getFirstAttr(blockHtml, 'a', 'title') || getFirstAttr(blockHtml, 'img', 'alt') || '';
+        title = cleanTitle(title);
+        if (!title) title = getFirstText(blockHtml, 'a') || 'Untitled';
 
-    // Lấy title từ thẻ a (title attribute) hoặc alt của img
-    function getTitle(blockHtml) {
-        const as = parse_html(blockHtml, 'a', 'title');
-        if (as && as.length > 0 && as[0].attr) return cleanTitle(as[0].attr);
-        const imgs = parse_html(blockHtml, 'img', 'alt');
-        if (imgs && imgs.length > 0 && imgs[0].attr) return cleanTitle(imgs[0].attr);
-        return '';
-    }
+        const poster = getFirstAttr(blockHtml, 'img', 'src') || getFirstAttr(blockHtml, 'img', 'data-src') || '';
 
-    function toMultimediaItem(item) {
         return new MultimediaItem({
-            title: item.title,
-            url: item.link,
-            posterUrl: item.image,
+            title: title,
+            url: link,
+            posterUrl: poster,
             type: 'nsfw',
             headers: HEADERS
         });
     }
 
-    async function fetchDoc(url) {
-        const res = await http_get(url, HEADERS);
-        if (res.status !== 200) throw new Error('HTTP ' + res.status);
-        return res.body;
+    // Lấy tất cả item từ một widget HTML (getHome)
+    function extractHomeItems(widgetHtml) {
+        const itemBlocks = parse_html(widgetHtml, 'div.col-md-3.col-sm-6.col-xs-6.item.responsive-height.post');
+        const items = [];
+        for (const block of itemBlocks) {
+            const item = blockToItem(block.attr);
+            if (item) items.push(item);
+        }
+        return items;
     }
 
-    // ========================
-    globalThis.getHome = async function(cb) {
+    // Lấy tất cả item từ trang search
+    function extractSearchItems(html) {
+        const itemBlocks = parse_html(html, 'div.item.responsive-height.col-md-4.col-sm-6.col-xs-6');
+        return itemBlocks.map(block => blockToItem(block.attr)).filter(Boolean);
+    }
+
+    // Lấy danh sách iframe src (loại bỏ link không hợp lệ)
+    function getIframeSrcs(html) {
+        return getAllAttr(html, 'iframe', 'src').filter(link => !link.startsWith('https://a.realsrv.com'));
+    }
+
+    // --- Các hàm chính ---
+    async function getHome(cb) {
         try {
-            const homeUrl = manifest.baseUrl + '/page/1';
-            const html = await fetchDoc(homeUrl);
+            const htmlRes = await http_get(`${BASE_URL}/page/1`, HEADERS);
+            if (htmlRes.status !== 200) throw new Error('HTTP ' + htmlRes.status);
+            const html = htmlRes.body;
+
+            const sectionHeaders = parse_html(html, 'div.section-header');
+            const titles = sectionHeaders.map(el => el.text.trim()).filter(t => t);
+
+            const widgetBlocks = parse_html(html, 'div#video-widget-3016');
             const homeData = {};
 
-            // Lấy tiêu đề section
-            const sectionHeaders = parse_html(html, 'div.section-header');
-            const titles = sectionHeaders.map(el => getText(el)).filter(t => t);
-
-            // Lấy widget container
-            const widgets = parse_html(html, 'div#video-widget-3016');
-            for (let i = 0; i < widgets.length; i++) {
-                const widgetHtml = widgets[i].attr; // innerHTML của widget
-                const sectionTitle = titles[i] || `Section ${i + 1}`;
-                const itemBlocks = parse_html(widgetHtml, 'div.col-md-3.col-sm-6.col-xs-6.item.responsive-height.post');
-                const items = [];
-                for (let j = 0; j < itemBlocks.length; j++) {
-                    const blockHtml = itemBlocks[j].attr;
-                    const link = getHref(blockHtml);
-                    if (!link) continue;
-                    items.push(toMultimediaItem({
-                        title: getTitle(blockHtml),
-                        link: link,
-                        image: getImgSrc(blockHtml) || ''
-                    }));
-                }
+            for (let i = 0; i < widgetBlocks.length; i++) {
+                const widgetHtml = widgetBlocks[i].attr; // innerHTML
+                const sectionTitle = titles[i] || `Section ${i+1}`;
+                const items = extractHomeItems(widgetHtml);
                 if (items.length > 0) homeData[sectionTitle] = items;
             }
-            if (Object.keys(homeData).length === 0) throw new Error('No home sections');
+
+            if (Object.keys(homeData).length === 0) throw new Error('No sections found');
             cb({ success: true, data: homeData });
         } catch (e) {
             cb({ success: false, errorCode: 'HOME_ERROR', message: e.message });
         }
-    };
+    }
 
-    globalThis.search = async function(query, cb) {
+    async function search(query, cb) {
         try {
-            const searchUrl = manifest.baseUrl + '/?s=' + encodeURIComponent(query);
-            const html = await fetchDoc(searchUrl);
-            const items = [];
-            const itemBlocks = parse_html(html, 'div.item.responsive-height.col-md-4.col-sm-6.col-xs-6');
-            for (let i = 0; i < itemBlocks.length; i++) {
-                const blockHtml = itemBlocks[i].attr;
-                const link = getHref(blockHtml);
-                if (!link) continue;
-                items.push(toMultimediaItem({
-                    title: getTitle(blockHtml),
-                    link: link,
-                    image: getImgSrc(blockHtml) || ''
-                }));
-            }
+            const htmlRes = await http_get(`${BASE_URL}/?s=${encodeURIComponent(query)}`, HEADERS);
+            if (htmlRes.status !== 200) throw new Error('HTTP ' + htmlRes.status);
+            const items = extractSearchItems(htmlRes.body);
             cb({ success: true, data: items });
         } catch (e) {
             cb({ success: false, errorCode: 'SEARCH_ERROR', message: e.message });
         }
-    };
+    }
 
-    globalThis.load = async function(url, cb) {
+    async function load(url, cb) {
         try {
-            const html = await fetchDoc(url);
-            const poster = getImgSrc(html); // ảnh đầu tiên thường là poster
+            const htmlRes = await http_get(url, HEADERS);
+            if (htmlRes.status !== 200) throw new Error('HTTP ' + htmlRes.status);
+            const html = htmlRes.body;
 
-            // Title: p.wp-caption-text
-            const titleEls = parse_html(html, 'div.video-details div.post-entry p.wp-caption-text');
-            const title = titleEls.length > 0 ? cleanTitle(getText(titleEls[0]) || 'No Title') : 'No Title';
+            // Poster
+            const poster = getFirstAttr(html, 'div.video-details div.post-entry img', 'src') || 
+                          getFirstAttr(html, 'img', 'src') || '';
 
-            // Description: p đầu tiên không phải caption
+            // Title
+            const rawTitle = getFirstText(html, 'p.wp-caption-text') || getFirstText(html, 'h1') || 'No Title';
+            const title = cleanTitle(rawTitle);
+
+            // Description
+            const descElem = parse_html(html, 'div.video-details div.post-entry p');
             let description = null;
-            const descPs = parse_html(html, 'div.video-details div.post-entry p');
-            if (descPs.length > 0) {
-                for (let i = 0; i < descPs.length; i++) {
-                    const txt = getText(descPs[i]);
-                    if (txt && !txt.toLowerCase().includes('caption')) {
-                        description = txt;
-                        break;
-                    }
+            for (const p of descElem) {
+                const t = p.text.trim();
+                if (t && !t.toLowerCase().includes('caption')) {
+                    description = t;
+                    break;
                 }
             }
 
             // Year
             let year = null;
-            const dateSpan = parse_html(html, 'span.date');
-            if (dateSpan.length > 0) {
-                const dateText = getText(dateSpan[0]);
-                const match = dateText.replace(/[^0-9]/g, '').match(/(\d{4})$/);
-                if (match) year = parseInt(match[1]);
+            const dateText = getFirstText(html, 'span.date');
+            if (dateText) {
+                const nums = dateText.replace(/[^0-9]/g, '');
+                if (nums.length >= 4) year = parseInt(nums.slice(-4));
             }
 
             // Tags
             const tags = [];
             const metaSpans = parse_html(html, 'span.meta');
-            metaSpans.forEach(metaSpan => {
+            for (const metaSpan of metaSpans) {
                 const metaHtml = metaSpan.attr;
-                const info = parse_html(metaHtml, 'span.meta-info');
-                if (info.length > 0) {
-                    const caption = getText(info[0]).toLowerCase();
-                    if (caption === 'category' || caption === 'tag') {
-                        const aTags = parse_html(metaHtml, 'a');
-                        aTags.forEach(a => {
-                            const tagText = getText(a);
-                            if (tagText) tags.push(tagText);
-                        });
-                    }
+                const caption = (getFirstText(metaHtml, 'span.meta-info') || '').toLowerCase();
+                if (caption === 'category' || caption === 'tag') {
+                    const aTexts = parse_html(metaHtml, 'a').map(a => a.text.trim()).filter(t => t);
+                    tags.push(...aTexts);
                 }
-            });
+            }
 
             // Recommendations
             const recs = [];
             const recDivs = parse_html(html, 'div.latest-wrapper div.item.active > div');
-            recDivs.forEach(recDiv => {
-                const blockHtml = recDiv.attr;
-                const link = getHref(blockHtml);
-                if (!link) return;
-                const recTitle = getTitle(blockHtml);
-                recs.push(toMultimediaItem({
-                    title: recTitle,
-                    link: link,
-                    image: getImgSrc(blockHtml) || ''
-                }));
-            });
+            for (const recDiv of recDivs) {
+                const recItem = blockToItem(recDiv.attr);
+                if (recItem) recs.push(recItem);
+            }
 
-            // Kiểm tra scenes
+            // Kiểm tra scenes (ul.pagination.post-tape)
             const sceneLis = parse_html(html, 'ul.pagination.post-tape > li');
             if (sceneLis.length > 0) {
                 const episodes = [];
                 for (let i = 0; i < sceneLis.length; i++) {
                     const liHtml = sceneLis[i].attr;
-                    const aHref = getHref(liHtml);
-                    const numText = getText(parse_html(liHtml, 'a')[0]);
+                    const link = getFirstAttr(liHtml, 'a', 'href');
+                    const numText = getFirstText(liHtml, 'a') || '';
                     const num = parseInt(numText) || (i + 1);
-                    if (aHref) {
+                    if (link) {
                         try {
-                            const sceneHtml = await fetchDoc(aHref);
-                            const iframes = parse_html(sceneHtml, 'iframe', 'src')
-                                .map(el => el.attr)
-                                .filter(src => src && !src.startsWith('https://a.realsrv.com'));
-                            episodes.push(new Episode({
-                                name: `Scene ${num}`,
-                                url: JSON.stringify(iframes),
-                                episode: num,
-                                posterUrl: poster
-                            }));
-                        } catch (e) {}
+                            const sceneHtmlRes = await http_get(link, HEADERS);
+                            if (sceneHtmlRes.status === 200) {
+                                const iframes = getIframeSrcs(sceneHtmlRes.body);
+                                episodes.push(new Episode({
+                                    name: `Scene ${num}`,
+                                    url: JSON.stringify(iframes),
+                                    episode: num,
+                                    posterUrl: poster
+                                }));
+                            }
+                        } catch (e) { /* bỏ qua scene lỗi */ }
                     }
                 }
                 if (episodes.length > 0) {
                     return cb({
                         success: true,
                         data: new MultimediaItem({
-                            title: title,
-                            url: url,
+                            title,
+                            url,
                             posterUrl: poster,
                             type: 'series',
-                            description: description,
-                            year: year,
-                            tags: tags,
+                            description,
+                            year,
+                            tags,
                             recommendations: recs,
-                            episodes: episodes,
+                            episodes,
                             headers: HEADERS
                         })
                     });
@@ -218,19 +201,17 @@
             }
 
             // Movie
-            const iframes = parse_html(html, 'iframe', 'src')
-                .map(el => el.attr)
-                .filter(src => src && !src.startsWith('https://a.realsrv.com'));
+            const iframes = getIframeSrcs(html);
             cb({
                 success: true,
                 data: new MultimediaItem({
-                    title: title,
+                    title,
                     url: JSON.stringify(iframes), // truyền vào loadStreams
                     posterUrl: poster,
                     type: 'movie',
-                    description: description,
-                    year: year,
-                    tags: tags,
+                    description,
+                    year,
+                    tags,
                     recommendations: recs,
                     headers: HEADERS
                 })
@@ -238,26 +219,26 @@
         } catch (e) {
             cb({ success: false, errorCode: 'LOAD_ERROR', message: e.message });
         }
-    };
+    }
 
-    globalThis.loadStreams = async function(dataUrl, cb) {
+    async function loadStreams(dataUrl, cb) {
         try {
             const links = JSON.parse(dataUrl);
             const streams = [];
             for (let link of links) {
-                // Rewrite domains
+                // Rewrite domain theo logic .kt
                 if (link.startsWith('https://javhdfree.icu')) {
-                    const withoutHttps = link.replace('https://', '');
-                    const idx = withoutHttps.indexOf('/') + 1;
-                    link = 'https://embedsito.com/' + withoutHttps.substring(idx);
+                    const noProto = link.replace('https://', '');
+                    const idx = noProto.indexOf('/') + 1;
+                    link = 'https://embedsito.com/' + noProto.substring(idx);
                 } else if (link.startsWith('https://viewsb.com')) {
                     link = link.replace('viewsb.com', 'watchsb.com');
                 }
 
                 if (typeof loadExtractor === 'function') {
-                    const extractorResult = await loadExtractor(link);
-                    if (Array.isArray(extractorResult)) {
-                        extractorResult.forEach(s => {
+                    const results = await loadExtractor(link);
+                    if (Array.isArray(results)) {
+                        results.forEach(s => {
                             s.source = 'JavHD';
                             streams.push(s);
                         });
@@ -267,21 +248,27 @@
                         url: link,
                         source: 'JavHD',
                         quality: 1080,
-                        headers: HEADERS
+                        headers: { ...HEADERS, Referer: link }
                     }));
                 }
             }
             // Dedup
             const seen = new Set();
-            const deduped = streams.filter(s => {
+            const finalStreams = streams.filter(s => {
                 const key = s.url + '|' + s.source;
                 if (seen.has(key)) return false;
                 seen.add(key);
                 return true;
             });
-            cb({ success: true, data: deduped });
+            cb({ success: true, data: finalStreams });
         } catch (e) {
             cb({ success: false, errorCode: 'STREAM_ERROR', message: e.message });
         }
-    };
+    }
+
+    // Export
+    globalThis.getHome = getHome;
+    globalThis.search = search;
+    globalThis.load = load;
+    globalThis.loadStreams = loadStreams;
 })();
