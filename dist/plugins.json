@@ -1,5 +1,22 @@
 [
   {
+    "packageName": "dev.lord.javHD",
+    "name": "javHD",
+    "version": 1,
+    "baseUrl": "https://javHD.icu",
+    "description": "javHD plugin",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javHD.sky"
+  },
+  {
     "packageName": "dev.lord.MissAV",
     "name": "MissAV",
     "version": 1,
