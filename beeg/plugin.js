@@ -1,4 +1,4 @@
-// Beeg plugin for SkyStream - Đầy đủ category, fix tiến trình & mô tả
+// Beeg plugin for SkyStream - Sửa lỗi tiến trình & đánh số tập
 (function() {
     const MAIN_URL = "https://beeg.com";
     const API_BASE = "https://store.externulls.com";
@@ -13,7 +13,6 @@
         "Accept-Language": "en-US,en;q=0.9"
     };
 
-    // Giữ nguyên toàn bộ danh sách thể loại như bản gốc
     const CATEGORIES = [
         { name: "Wow Girls", slug: "WowGirls" },
         { name: "Bratty Sis", slug: "BrattySis" },
@@ -43,7 +42,7 @@
         { name: "NF Busty", slug: "NFBusty" },
         { name: "Porn World", slug: "PornWorld" },
         { name: "Tushy", slug: "Tushy" },
-        { name: "Main Page", slug: "27173" }, // id thay vì slug
+        { name: "Main Page", slug: "27173" },
         { name: "Anal", slug: "Anal" },
         { name: "Japanese", slug: "Japanese" },
         { name: "Big Tits", slug: "BigTits" },
@@ -163,7 +162,7 @@
                     for (const entry of videos) {
                         const file = entry.file || {};
                         const dataArr = file.data || [];
-                        const fileId = file.id || entry.id;
+                        const fileId = file.id;
                         if (!fileId || seen.has(fileId)) continue;
                         seen.add(fileId);
                         const first = dataArr[0];
@@ -248,11 +247,12 @@
 
             const episodes = [];
             const seenFileIds = new Set();
+            let episodeIndex = 0; // đếm số tập
 
             for (const entry of allFiles) {
                 const file = entry.file || {};
                 const dataArr = file.data || [];
-                const fileId = file.id || entry.id;
+                const fileId = file.id;
                 if (!fileId || seenFileIds.has(fileId)) continue;
                 seenFileIds.add(fileId);
 
@@ -265,13 +265,13 @@
                 const epUrl = JSON.stringify({
                     type: "video",
                     fileId: fileId,
-                    cd_value: firstData.cd_value,
-                    fullFile: file
+                    cd_value: firstData.cd_value
                 });
 
                 episodes.push(new Episode({
                     name: firstData.cd_value,
                     url: epUrl,
+                    episode: ++episodeIndex,      // đánh số 1,2,3...
                     posterUrl: `${THUMB_BASE}/videos/${fileId}/0.webp?size=480x270`,
                     description: durationStr,
                     headers: HEADERS
@@ -299,13 +299,11 @@
         try {
             const parsed = JSON.parse(url);
             const fileId = parsed.fileId;
-            let hlsMulti = parsed.fullFile?.hls_resources?.fl_cdn_multi;
+            if (!fileId) return cb({ success: false, message: "Missing file ID" });
 
-            if (!hlsMulti && fileId) {
-                const factData = await fetchFileFacts(fileId);
-                const fileObj = factData.file || (factData.fc_facts && factData.fc_facts[0]) || {};
-                hlsMulti = fileObj.hls_resources?.fl_cdn_multi;
-            }
+            const factData = await fetchFileFacts(fileId);
+            const fileObj = factData.file || (factData.fc_facts && factData.fc_facts[0]) || {};
+            const hlsMulti = fileObj.hls_resources?.fl_cdn_multi;
 
             if (!hlsMulti) return cb({ success: false, message: "No stream URL found" });
 
