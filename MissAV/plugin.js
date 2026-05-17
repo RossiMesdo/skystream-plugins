@@ -11,8 +11,8 @@
         return await parseHtml(res.body);
     }
 
-    async function fetchRaw(url) {
-        const res = await http_get(url, HEADERS);
+    async function fetchRaw(url, extraHeaders = {}) {
+        const res = await http_get(url, { ...HEADERS, ...extraHeaders });
         if (res.status !== 200) throw new Error('HTTP ' + res.status);
         return res.body;
     }
@@ -103,7 +103,6 @@
         { name: "Naughty 0930", path: "/dm22/en/naughty0930" }
     ];
 
-    // Lấy nhiều trang cùng lúc để đạt ~200 video
     async function fetchCategoryVideos(cat) {
         const separator = cat.path.includes('?') ? '&' : '?';
         const pages = [1,2,3,4,5,6,7];
@@ -226,60 +225,100 @@
         }
     }
 
-    // ========== LOAD STREAMS (BÁM SÁT CLOUDSTREAM) ==========
+    // ========== LOAD STREAMS (TỰ PARSE M3U8) ==========
+    function parseM3U8(m3u8Body, baseUrl) {
+        const lines = m3u8Body.split('\n');
+        let bestUrl = null;
+        let bestResolution = 0;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('#EXT-X-STREAM-INF')) {
+                const resMatch = line.match(/RESOLUTION=\d+x(\d+)/i);
+                const res = resMatch ? parseInt(resMatch[1], 10) : 0;
+                // Lấy dòng tiếp theo (URL)
+                const nextLine = lines[i + 1]?.trim();
+                if (nextLine && !nextLine.startsWith('#')) {
+                    const url = resolveUrl(nextLine, baseUrl);
+                    if (res > bestResolution) {
+                        bestResolution = res;
+                        bestUrl = url;
+                    }
+                }
+            }
+        }
+
+        // Nếu không tìm thấy stream con, có thể đây là playlist đơn
+        if (!bestUrl) {
+            // Tìm dòng đầu tiên không phải comment
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed && !trimmed.startsWith('#') && trimmed.endsWith('.m3u8')) {
+                    bestUrl = resolveUrl(trimmed, baseUrl);
+                    break;
+                }
+            }
+        }
+
+        return bestUrl;
+    }
+
     async function loadStreams(dataUrl, cb) {
         try {
-            // 1. Lấy HTML trang phim (dataUrl chính là URL phim)
             const html = await fetchRaw(dataUrl);
             let unpacked = html;
 
-            // 2. Dùng getAndUnpack nếu có, nếu không có hoặc lỗi thì bỏ qua
             if (typeof getAndUnpack === 'function') {
-                try {
-                    unpacked = getAndUnpack(html);
-                } catch (e) {
-                    // Giữ nguyên html
-                }
+                try { unpacked = getAndUnpack(html); } catch (e) {}
             }
 
-            // 3. Áp dụng regex đúng như Cloudstream: tìm UUID trong chuỗi đã unpack
+            // Tìm UUID theo đúng regex Cloudstream
+            let playlistId = null;
             const uuidRegex = /\/([a-f0-9\-]{36})\//i;
-            let match = unpacked.match(uuidRegex);
-            let playlistId = match ? match[1] : null;
-
-            // 4. Nếu không tìm thấy trong unpacked, thử quét tất cả thẻ <script> trên trang gốc
-            if (!playlistId) {
+            const match = unpacked.match(uuidRegex);
+            if (match) {
+                playlistId = match[1];
+            } else {
+                // fallback quét script
                 const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-                let scriptMatch;
-                while ((scriptMatch = scriptRegex.exec(html)) !== null) {
-                    const scriptContent = scriptMatch[1];
-                    const uuidMatch = scriptContent.match(uuidRegex);
-                    if (uuidMatch) {
-                        playlistId = uuidMatch[1];
-                        break;
-                    }
-                    // Thử unpack từng script nếu cần (có thể bỏ qua)
+                let sm;
+                while ((sm = scriptRegex.exec(html)) !== null) {
+                    const m2 = sm[1].match(uuidRegex);
+                    if (m2) { playlistId = m2[1]; break; }
                 }
-            }
-
-            // 5. Nếu vẫn không có, thử regex mở rộng: UUID không cần dấu / trước/sau
-            if (!playlistId) {
-                const looseRegex = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
-                const looseMatch = html.match(looseRegex);
-                if (looseMatch) playlistId = looseMatch[1];
+                // fallback UUID chuẩn
+                if (!playlistId) {
+                    const loose = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
+                    const lm = html.match(loose);
+                    if (lm) playlistId = lm[1];
+                }
             }
 
             if (!playlistId) throw new Error('Playlist ID not found');
 
-            // 6. Tạo URL stream giống hệt Cloudstream
-            const streamUrl = `https://surrit.com/${playlistId}/playlist.m3u8`;
+            const masterUrl = `https://surrit.com/${playlistId}/playlist.m3u8`;
+
+            // Tải master playlist với header chuẩn
+            const playlistHeaders = {
+                'Referer': BASE_URL + '/',
+                'Origin': BASE_URL
+            };
+            const masterBody = await fetchRaw(masterUrl, playlistHeaders);
+
+            // Parse để lấy stream chất lượng cao nhất
+            const streamUrl = parseM3U8(masterBody, masterUrl);
+
+            if (!streamUrl) throw new Error('No valid stream found in playlist');
 
             cb({ success: true, data: [
                 new StreamResult({
                     url: streamUrl,
                     source: 'MissAV',
                     quality: 1080,
-                    headers: { 'Referer': BASE_URL + '/' }
+                    headers: {
+                        'Referer': BASE_URL + '/',
+                        'Origin': BASE_URL
+                    }
                 })
             ]});
         } catch (e) {
