@@ -1,25 +1,19 @@
-// Beeg plugin for SkyStream
-// Converted from CloudStream beeg.kt by @Kraptor123
+// Beeg plugin for SkyStream - Đầy đủ category, fix tiến trình & mô tả
 (function() {
-    /**
-     * @type {import('@skystream/sdk').Manifest}
-     */
-    // manifest is injected at runtime
-
-    // --- Constants ---
     const MAIN_URL = "https://beeg.com";
     const API_BASE = "https://store.externulls.com";
     const THUMB_BASE = "https://thumbs.externulls.com";
     const VIDEO_CDN = "https://video.beeg.com";
 
     const HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Origin": MAIN_URL,
         "Referer": MAIN_URL + "/",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9"
     };
 
+    // Giữ nguyên toàn bộ danh sách thể loại như bản gốc
     const CATEGORIES = [
         { name: "Wow Girls", slug: "WowGirls" },
         { name: "Bratty Sis", slug: "BrattySis" },
@@ -49,6 +43,7 @@
         { name: "NF Busty", slug: "NFBusty" },
         { name: "Porn World", slug: "PornWorld" },
         { name: "Tushy", slug: "Tushy" },
+        { name: "Main Page", slug: "27173" }, // id thay vì slug
         { name: "Anal", slug: "Anal" },
         { name: "Japanese", slug: "Japanese" },
         { name: "Big Tits", slug: "BigTits" },
@@ -97,9 +92,7 @@
         { name: "Old Young", slug: "OldYoung" }
     ];
 
-    // --- Helpers ---
     function videoToMultimediaItem(videoData, title, fileId) {
-        // videoData: cd_file, cd_value từ Icerik; fileId: id video để tạo thumb
         const name = title || videoData.cd_value || "Unknown";
         const poster = `${THUMB_BASE}/videos/${fileId}/49.webp?size=480x270`;
         const url = JSON.stringify({ type: "video", fileId: fileId, fileData: videoData });
@@ -107,7 +100,7 @@
             title: name,
             url: url,
             posterUrl: poster,
-            type: "movie", // Beeg content is mostly clips (NSFW)
+            type: "movie",
             headers: HEADERS
         });
     }
@@ -130,72 +123,65 @@
             title: name,
             url: url,
             posterUrl: posterUrl,
-            type: "movie",
+            type: "tvseries",
             headers: HEADERS
         });
     }
 
     async function fetchTagVideos(slug, limit = 48, offset = 0) {
         const url = `${API_BASE}/tag/videos/${slug}?limit=${limit}&offset=${offset}`;
-        try {
-            const res = await http_get(url, HEADERS);
-            const body = res.body || "[]";
-            return JSON.parse(body);
-        } catch (e) {
-            console.error("Beeg fetchTagVideos error:", e);
-            return [];
-        }
+        const res = await http_get(url, HEADERS);
+        return JSON.parse(res.body || "[]");
     }
 
     async function fetchActors() {
         const url = `${API_BASE}/tag/recommends?type=person&slug=index`;
-        try {
-            const res = await http_get(url, HEADERS);
-            return JSON.parse(res.body || "[]");
-        } catch (e) {
-            console.error("Beeg fetchActors error:", e);
-            return [];
-        }
+        const res = await http_get(url, HEADERS);
+        return JSON.parse(res.body || "[]");
     }
 
-    // --- Core Functions ---
+    async function fetchFileFacts(fileId) {
+        const url = `${API_BASE}/facts/file/${fileId}`;
+        const res = await http_get(url, HEADERS);
+        return JSON.parse(res.body || "{}");
+    }
 
     async function getHome(cb) {
         try {
             const homeData = {};
-            // Lấy Actors section
             const actors = await fetchActors();
             if (actors && actors.length) {
                 const actorItems = actors.slice(0, 30).map(actorToMultimediaItem).filter(Boolean);
                 if (actorItems.length) homeData["Actors"] = actorItems;
             }
 
-            // Lấy mỗi category video (chỉ lấy trang đầu tiên, limit=48)
-            const categoryPromises = CATEGORIES.map(async (cat) => {
-                const videos = await fetchTagVideos(cat.slug, 48, 0);
-                // Mỗi video là một object có "file" chứa "data" là mảng Icerik
-                const items = [];
-                for (const entry of videos) {
-                    const file = entry.file || {};
-                    const dataArr = file.data || [];
-                    const fileId = entry.id || file.id;
-                    for (const vid of dataArr) {
-                        if (vid.cd_value) {
-                            items.push(videoToMultimediaItem(vid, vid.cd_value, fileId));
+            const results = await Promise.allSettled(
+                CATEGORIES.map(async cat => {
+                    const videos = await fetchTagVideos(cat.slug, 48, 0);
+                    const items = [];
+                    const seen = new Set();
+                    for (const entry of videos) {
+                        const file = entry.file || {};
+                        const dataArr = file.data || [];
+                        const fileId = file.id || entry.id;
+                        if (!fileId || seen.has(fileId)) continue;
+                        seen.add(fileId);
+                        const first = dataArr[0];
+                        if (first && first.cd_value) {
+                            items.push(videoToMultimediaItem(first, first.cd_value, fileId));
                         }
                     }
-                }
-                return { name: cat.name, items: items.slice(0, 48) }; // Giới hạn
-            });
+                    return { name: cat.name, items: items.slice(0, 48) };
+                })
+            );
 
-            const results = await Promise.allSettled(categoryPromises);
             results.forEach(res => {
                 if (res.status === "fulfilled" && res.value.items.length) {
                     homeData[res.value.name] = res.value.items;
                 }
             });
 
-            if (Object.keys(homeData).length === 0) {
+            if (!Object.keys(homeData).length) {
                 return cb({ success: false, errorCode: "HOME_ERROR", message: "No sections available" });
             }
             cb({ success: true, data: homeData });
@@ -207,15 +193,12 @@
     async function search(query, cb) {
         try {
             const actors = await fetchActors();
-            if (!actors || !actors.length) {
-                return cb({ success: false, errorCode: "SEARCH_ERROR", message: "No data" });
-            }
+            if (!actors || !actors.length) return cb({ success: false, errorCode: "SEARCH_ERROR" });
             const lowerQuery = query.toLowerCase();
-            const matchedActors = actors.filter(actor => {
-                const name = (actor.tg_name || "").toLowerCase();
-                return name.includes(lowerQuery);
-            });
-            const items = matchedActors.map(actorToMultimediaItem).filter(Boolean);
+            const items = actors
+                .filter(a => (a.tg_name || "").toLowerCase().includes(lowerQuery))
+                .map(actorToMultimediaItem)
+                .filter(Boolean);
             cb({ success: true, data: items });
         } catch (e) {
             cb({ success: false, errorCode: "SEARCH_ERROR", message: e.message });
@@ -224,7 +207,6 @@
 
     async function load(url, cb) {
         try {
-            // Nếu url là JSON (từ video item)
             if (url.startsWith("{") && url.includes('"type":"video"')) {
                 const parsed = JSON.parse(url);
                 const title = parsed.fileData?.cd_value || "Video";
@@ -242,60 +224,68 @@
                     url: url,
                     posterUrl: poster,
                     type: "movie",
+                    description: title,
                     episodes: [episode],
                     headers: HEADERS
                 });
                 return cb({ success: true, data: item });
             }
 
-            // Url là actor slug
             const slug = url.replace(MAIN_URL + "/", "").replace(/\/$/, "");
             if (!slug) return cb({ success: false, message: "Invalid URL" });
 
-            // Lấy danh sách video của actor
-            let allVideos = [];
+            let allFiles = [];
             let offset = 0;
             while (true) {
                 const batch = await fetchTagVideos(slug, 48, offset);
                 if (!batch || !batch.length) break;
-                allVideos = allVideos.concat(batch);
+                allFiles = allFiles.concat(batch);
                 if (batch.length < 48) break;
                 offset += 48;
             }
 
-            if (allVideos.length === 0) {
-                return cb({ success: false, message: "No videos found" });
-            }
+            if (!allFiles.length) return cb({ success: false, message: "No videos found" });
 
             const episodes = [];
-            for (const entry of allVideos) {
+            const seenFileIds = new Set();
+
+            for (const entry of allFiles) {
                 const file = entry.file || {};
                 const dataArr = file.data || [];
-                const fileId = entry.id || file.id;
+                const fileId = file.id || entry.id;
+                if (!fileId || seenFileIds.has(fileId)) continue;
+                seenFileIds.add(fileId);
+
+                const firstData = dataArr[0];
+                if (!firstData || !firstData.cd_value) continue;
+
                 const durationSec = parseInt(file.fl_duration || 0);
                 const durationStr = `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}`;
-                for (const vid of dataArr) {
-                    if (!vid.cd_value) continue;
-                    const epData = { type: "video", fileId: fileId, fileData: vid, fullFile: file };
-                    const epUrl = JSON.stringify(epData);
-                    episodes.push(new Episode({
-                        name: vid.cd_value,
-                        url: epUrl,
-                        posterUrl: `${THUMB_BASE}/videos/${fileId}/0.webp?size=480x270`,
-                        description: durationStr,
-                        headers: HEADERS
-                    }));
-                }
+
+                const epUrl = JSON.stringify({
+                    type: "video",
+                    fileId: fileId,
+                    cd_value: firstData.cd_value,
+                    fullFile: file
+                });
+
+                episodes.push(new Episode({
+                    name: firstData.cd_value,
+                    url: epUrl,
+                    posterUrl: `${THUMB_BASE}/videos/${fileId}/0.webp?size=480x270`,
+                    description: durationStr,
+                    headers: HEADERS
+                }));
             }
 
-            const firstThumb = episodes[0]?.posterUrl;
-            const title = slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-
+            const displayTitle = slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
             const item = new MultimediaItem({
-                title: title,
+                title: displayTitle,
                 url: url,
-                posterUrl: firstThumb,
-                type: "tvseries", // Coi như series để chứa nhiều tập
+                posterUrl: episodes[0]?.posterUrl,
+                type: "tvseries",
+                description: `Channel: ${displayTitle}`,
+                plot: `${episodes.length} videos`,
                 episodes: episodes,
                 headers: HEADERS
             });
@@ -309,37 +299,32 @@
         try {
             const parsed = JSON.parse(url);
             const fileId = parsed.fileId;
-            const fullFile = parsed.fullFile || {};
-            let hlsMulti = (fullFile.hls_resources && fullFile.hls_resources.fl_cdn_multi) || null;
+            let hlsMulti = parsed.fullFile?.hls_resources?.fl_cdn_multi;
 
-            // Nếu không có hls từ dữ liệu đã lưu, gọi API facts/file
             if (!hlsMulti && fileId) {
-                const factUrl = `${API_BASE}/facts/file/${fileId}`;
-                const res = await http_get(factUrl, HEADERS);
-                const factData = JSON.parse(res.body || "{}");
+                const factData = await fetchFileFacts(fileId);
                 const fileObj = factData.file || (factData.fc_facts && factData.fc_facts[0]) || {};
-                hlsMulti = (fileObj.hls_resources && fileObj.hls_resources.fl_cdn_multi) || null;
+                hlsMulti = fileObj.hls_resources?.fl_cdn_multi;
             }
 
-            if (hlsMulti) {
-                const streamUrl = `${VIDEO_CDN}/${hlsMulti}`;
-                const stream = new StreamResult({
-                    url: streamUrl,
-                    source: "Beeg",
-                    quality: 1080,
-                    headers: { Referer: MAIN_URL + "/" },
-                    type: "m3u8"
-                });
-                cb({ success: true, data: [stream] });
-            } else {
-                cb({ success: false, message: "No stream found" });
-            }
+            if (!hlsMulti) return cb({ success: false, message: "No stream URL found" });
+
+            const streamPath = hlsMulti.startsWith("/") ? hlsMulti : `/${hlsMulti}`;
+            const streamUrl = `${VIDEO_CDN}${streamPath}`;
+
+            const stream = new StreamResult({
+                url: streamUrl,
+                source: "Beeg",
+                quality: 1080,
+                headers: { "Referer": MAIN_URL + "/" }
+            });
+
+            cb({ success: true, data: [stream] });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
         }
     }
 
-    // Export
     globalThis.getHome = getHome;
     globalThis.search = search;
     globalThis.load = load;
