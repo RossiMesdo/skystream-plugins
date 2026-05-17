@@ -1,0 +1,16 @@
+{
+  "packageName": "dev.lord.beeg",
+  "name": "Beeg",
+  "version": 1,
+  "baseUrl": "https://beeg.com",
+  "description": "Beeg plugin",
+  "authors": [
+    "Lord"
+  ],
+  "languages": [
+    "en"
+  ],
+  "categories": [
+    "Movie"
+  ]
+}
