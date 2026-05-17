@@ -97,6 +97,23 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.animesalt.sky"
   },
   {
+    "packageName": "dev.lord.aznude",
+    "name": "Beeg",
+    "version": 1,
+    "baseUrl": "https://aznude.com",
+    "description": "aznude plugin",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.aznude.sky"
+  },
+  {
     "packageName": "dev.lord.beeg",
     "name": "Beeg",
     "version": 1,
