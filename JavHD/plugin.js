@@ -1,27 +1,55 @@
 (function() {
+    // --- Constants ---
     const MAIN_URL = "https://javhd.icu";
     const PREFIX = "JAV HD";
     const HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     };
 
     // --- Helpers ---
-    function cleanTitle(str) {
-        return str.replace(new RegExp('^' + PREFIX + '\\s*', 'i'), '').trim();
+    function cleanTitle(title) {
+        if (!title) return "";
+        return title.trim().replace(new RegExp("^" + PREFIX + "\\s*", "i"), "").trim();
     }
 
-    async function fetchHtml(url) {
-        const res = await http_get(url, HEADERS);
-        if (res.status !== 200) throw new Error("HTTP " + res.status);
-        return res.body;
+    function fetchDocument(url) {
+        return http_get(url, HEADERS).then(res => {
+            if (res.status !== 200) throw new Error("HTTP " + res.status);
+            return res.body;
+        });
     }
 
-    function parseHtml(html, selector, attr) {
-        if (typeof parse_html !== 'function') throw new Error('parse_html not available');
-        const results = parse_html(html, selector, attr);
-        return (results || []).map(r => ({ attr: r.attr, text: r.text }));
+    // Sử dụng parse_html toàn cục (có sẵn trong môi trường plugin SkyStream)
+    function select(html, cssSelector, attribute) {
+        if (typeof parse_html !== "function") {
+            throw new Error("parse_html is not available");
+        }
+        const elements = parse_html(html, cssSelector, attribute);
+        return (elements || []).map(el => ({
+            attr: el.attr,
+            text: el.text
+        }));
     }
 
+    // Trích xuất href, src, text,... từ kết quả parse
+    function getAttr(html, selector, attr) {
+        const found = select(html, selector, attr);
+        return found.length > 0 ? found[0].attr : null;
+    }
+
+    function getText(html, selector) {
+        const found = select(html, selector, "text");
+        return found.length > 0 ? found[0].text : null;
+    }
+
+    // Lấy danh sách các phần tử (dùng html để lấy innerHTML nếu cần parse tiếp)
+    function getElementsHtml(html, selector) {
+        if (typeof parse_html !== "function") return [];
+        const elements = parse_html(html, selector, "html");
+        return (elements || []).map(el => el.attr);
+    }
+
+    // Xây dựng MultimediaItem từ dữ liệu item
     function toMultimediaItem(item) {
         return new MultimediaItem({
             title: item.title,
@@ -32,176 +60,253 @@
         });
     }
 
-    // --- getHome ---
+    // Lấy danh sách iframe src từ trang chi tiết (loại bỏ link không hợp lệ)
+    function getIframeSrcs(html) {
+        return select(html, "iframe", "src")
+            .map(x => x.attr)
+            .filter(link => link && !link.startsWith("https://a.realsrv.com"));
+    }
+
+    // Rewrite domain nếu cần (theo logic trong .kt)
+    function rewriteLink(vid) {
+        if (vid.startsWith("https://javhdfree.icu")) {
+            const withoutHttps = vid.replace("https://", "");
+            const idx = withoutHttps.indexOf('/') + 1;
+            return "https://embedsito.com/" + withoutHttps.substring(idx);
+        } else if (vid.startsWith("https://viewsb.com")) {
+            return vid.replace("viewsb.com", "watchsb.com");
+        }
+        return vid;
+    }
+
+    // --- Core Functions ---
+
     globalThis.getHome = async function(cb) {
         try {
             const page = 1;
             const url = MAIN_URL + "/page/" + page;
-            const html = await fetchHtml(url);
-            const titles = parseHtml(html, "div.section-header", "text").map(e => e.text.trim()).filter(t => t);
-            const widgetHtmls = parseHtml(html, "div#video-widget-3016", "html").map(e => e.attr);
+            const html = await fetchDocument(url);
+
+            // Lấy tiêu đề từ section-header
+            const titleElements = select(html, "div.section-header", "text");
+            const titles = titleElements.map(el => el.text.trim()).filter(t => t);
+
+            // Mỗi widget video-widget-3016 tương ứng một section
+            const widgetHtmls = getElementsHtml(html, "div#video-widget-3016");
             const homeData = {};
+
             for (let i = 0; i < widgetHtmls.length; i++) {
                 const widgetHtml = widgetHtmls[i];
-                const sectionTitle = titles[i] || "No Name";
-                const itemsHtml = parseHtml(widgetHtml, "div.item.responsive-height.post", "html").map(e => e.attr);
-                const items = itemsHtml.map(itemHtml => {
-                    const a = parseHtml(itemHtml, "div.item-img > a", "href")[0]?.attr;
-                    if (!a) return null;
-                    const aTitle = parseHtml(itemHtml, "div.item-img > a", "title")[0]?.attr || "";
-                    const img = parseHtml(itemHtml, "img", "src")[0]?.attr || "";
-                    const title = cleanTitle(aTitle || parseHtml(itemHtml, "img", "alt")[0]?.attr || "");
-                    return toMultimediaItem({ title, link: a, image: img });
-                }).filter(Boolean);
-                if (items.length) homeData[sectionTitle] = items;
+                const sectionTitle = titles[i] || ("Section " + (i + 1));
+
+                // Lấy các item trong widget
+                const itemHtmls = getElementsHtml(widgetHtml, "div.col-md-3.col-sm-6.col-xs-6.item.responsive-height.post");
+                const items = [];
+
+                for (let j = 0; j < itemHtmls.length; j++) {
+                    const itemHtml = itemHtmls[j];
+                    const link = getAttr(itemHtml, "div.item-img > a", "href");
+                    if (!link) continue;
+
+                    const titleFromAttr = getAttr(itemHtml, "div.item-img > a", "title") || "";
+                    const imgFromSrc = getAttr(itemHtml, "img", "src") || "";
+                    const altText = getText(itemHtml, "img") || "";
+                    const title = cleanTitle(titleFromAttr || altText);
+
+                    items.push(toMultimediaItem({
+                        title: title,
+                        link: link,
+                        image: imgFromSrc
+                    }));
+                }
+
+                if (items.length > 0) {
+                    homeData[sectionTitle] = items;
+                }
             }
-            if (!Object.keys(homeData).length) throw new Error("No home sections");
+
+            if (Object.keys(homeData).length === 0) {
+                return cb({ success: false, errorCode: "HOME_ERROR", message: "No home sections available" });
+            }
+
             cb({ success: true, data: homeData });
         } catch (e) {
             cb({ success: false, errorCode: "HOME_ERROR", message: e.message });
         }
     };
 
-    // --- search ---
     globalThis.search = async function(query, cb) {
         try {
             const url = MAIN_URL + "/?s=" + encodeURIComponent(query);
-            const html = await fetchHtml(url);
-            const itemsHtml = parseHtml(html, "div.item.responsive-height.post", "html").map(e => e.attr);
-            const items = itemsHtml.map(itemHtml => {
-                const a = parseHtml(itemHtml, "div.item-img > a", "href")[0]?.attr;
-                if (!a) return null;
-                const aTitle = parseHtml(itemHtml, "div.item-img > a", "title")[0]?.attr || "";
-                const img = parseHtml(itemHtml, "img", "src")[0]?.attr || "";
-                const title = cleanTitle(aTitle || parseHtml(itemHtml, "img", "alt")[0]?.attr || "");
-                return toMultimediaItem({ title, link: a, image: img });
-            }).filter(Boolean);
+            const html = await fetchDocument(url);
+
+            const itemHtmls = getElementsHtml(html, "div.item.responsive-height.col-md-4.col-sm-6.col-xs-6");
+            const items = [];
+
+            for (let j = 0; j < itemHtmls.length; j++) {
+                const itemHtml = itemHtmls[j];
+                const link = getAttr(itemHtml, "div.item-img > a", "href");
+                if (!link) continue;
+
+                const titleFromAttr = getAttr(itemHtml, "div.item-img > a", "title") || "";
+                const imgFromSrc = getAttr(itemHtml, "img", "src") || "";
+                const altText = getText(itemHtml, "img") || "";
+                const title = cleanTitle(titleFromAttr || altText);
+
+                items.push(toMultimediaItem({
+                    title: title,
+                    link: link,
+                    image: imgFromSrc
+                }));
+            }
+
             cb({ success: true, data: items });
         } catch (e) {
             cb({ success: false, errorCode: "SEARCH_ERROR", message: e.message });
         }
     };
 
-    // --- load ---
     globalThis.load = async function(url, cb) {
         try {
-            const html = await fetchHtml(url);
-            const poster = parseHtml(html, "div.video-details div.post-entry img", "src")[0]?.attr || null;
-            const titleEl = parseHtml(html, "div.video-details div.post-entry p.wp-caption-text", "text")[0]?.text;
-            const title = cleanTitle(titleEl || "No Title");
-            const descEls = parseHtml(html, "div.video-details div.post-entry p", "text");
-            const description = (descEls.length > 0) ? descEls[0].text.trim() : null;
-            const yearText = parseHtml(html, "span.date", "text")[0]?.text || "";
-            const year = yearText.replace(/[^0-9]/g, '').slice(-4) || null;
-            const tags = [];
-            const metaSpans = parseHtml(html, "span.meta", "html").map(e => e.attr);
-            metaSpans.forEach(spanHtml => {
-                const caption = parseHtml(spanHtml, "span.meta-info", "text")[0]?.text?.toLowerCase() || "";
-                if (caption === "category" || caption === "tag") {
-                    const tagLinks = parseHtml(spanHtml, "a", "text").map(e => e.text.trim()).filter(t => t);
-                    tags.push(...tagLinks);
-                }
-            });
-            const recItemsHtml = parseHtml(html, "div.latest-wrapper div.item.active > div", "html").map(e => e.attr);
-            const recs = recItemsHtml.map(recHtml => {
-                const a = parseHtml(recHtml, "div.item-img > a", "href")[0]?.attr;
-                if (!a) return null;
-                const aName = parseHtml(recHtml, "h3 > a", "text")[0]?.text || "";
-                const aImg = parseHtml(recHtml, "img", "src")[0]?.attr || "";
-                return toMultimediaItem({ title: cleanTitle(aName), link: a, image: aImg });
-            }).filter(Boolean);
+            const html = await fetchDocument(url);
 
-            // Check for scenes (pagination)
-            const sceneLi = parseHtml(html, "ul.pagination.post-tape > li", "html").map(e => e.attr);
-            if (sceneLi.length > 0) {
-                const episodes = [];
-                for (let i = 0; i < sceneLi.length; i++) {
-                    const liHtml = sceneLi[i];
-                    const aTag = parseHtml(liHtml, "a", "href")[0];
-                    const sceneLink = aTag ? aTag.attr : null;
-                    const sceneNumText = parseHtml(liHtml, "a", "text")[0]?.text;
-                    const sceneNum = parseInt(sceneNumText) || (i + 1);
-                    if (sceneLink) {
-                        try {
-                            const sceneHtml = await fetchHtml(sceneLink);
-                            const iframeSrcs = parseHtml(sceneHtml, "iframe", "src")
-                                .map(e => e.attr)
-                                .filter(link => link && !link.startsWith("https://a.realsrv.com"));
-                            episodes.push(new Episode({
-                                name: `Scene ${sceneNum}`,
-                                url: JSON.stringify(iframeSrcs),
-                                episode: sceneNum,
-                                posterUrl: poster,
-                            }));
-                        } catch (e) {
-                            // skip broken scenes
-                        }
-                    }
-                }
-                if (episodes.length) {
-                    cb({ success: true, data: new MultimediaItem({
-                        title: title,
-                        url: url,
-                        posterUrl: poster,
-                        type: "series",
-                        description: description,
-                        year: year,
-                        tags: tags,
-                        recommendations: recs,
-                        episodes: episodes,
-                        headers: HEADERS
-                    })});
-                    return;
+            // Poster
+            const poster = getAttr(html, "div.video-details div.post-entry img", "src");
+
+            // Title
+            const rawTitle = getText(html, "div.video-details div.post-entry p.wp-caption-text");
+            const title = cleanTitle(rawTitle || "No Title");
+
+            // Description (p đầu tiên)
+            const descEls = select(html, "div.video-details div.post-entry p", "text");
+            const description = descEls.length > 0 ? descEls[0].text.trim() : null;
+
+            // Year
+            const yearText = getText(html, "span.date") || "";
+            const yearMatch = yearText.replace(/[^0-9]/g, "").match(/(\d{4})$/);
+            const year = yearMatch ? parseInt(yearMatch[1]) : null;
+
+            // Tags
+            const tags = [];
+            const metaSpanHtmls = getElementsHtml(html, "span.meta");
+            for (let i = 0; i < metaSpanHtmls.length; i++) {
+                const spanHtml = metaSpanHtmls[i];
+                const caption = (getText(spanHtml, "span.meta-info") || "").toLowerCase().trim();
+                if (caption === "category" || caption === "tag") {
+                    const tagLinks = select(spanHtml, "a", "text").map(e => e.text.trim()).filter(t => t);
+                    tags.push(...tagLinks);
                 }
             }
 
-            // Movie (single video)
-            const iframeSrcs = parseHtml(html, "iframe", "src")
-                .map(e => e.attr)
-                .filter(link => link && !link.startsWith("https://a.realsrv.com"));
-            const dataUrl = JSON.stringify(iframeSrcs);
-            cb({ success: true, data: new MultimediaItem({
-                title: title,
-                url: dataUrl,          // will be passed to loadStreams
-                posterUrl: poster,
-                type: "movie",
-                description: description,
-                year: year,
-                tags: tags,
-                recommendations: recs,
-                headers: HEADERS
-            })});
+            // Recommendations
+            const recHtmls = getElementsHtml(html, "div.latest-wrapper div.item.active > div");
+            const recs = [];
+            for (let i = 0; i < recHtmls.length; i++) {
+                const recHtml = recHtmls[i];
+                const recLink = getAttr(recHtml, "div.item-img > a", "href");
+                if (!recLink) continue;
+                const recName = getText(recHtml, "h3 > a") || "";
+                const recImg = getAttr(recHtml, "img", "src") || "";
+                recs.push(toMultimediaItem({
+                    title: cleanTitle(recName),
+                    link: recLink,
+                    image: recImg
+                }));
+            }
+
+            // Kiểm tra có phải series không (ul.pagination.post-tape > li)
+            const sceneItems = getElementsHtml(html, "ul.pagination.post-tape > li");
+            if (sceneItems.length > 0) {
+                const episodes = [];
+                for (let i = 0; i < sceneItems.length; i++) {
+                    const liHtml = sceneItems[i];
+                    const sceneLink = getAttr(liHtml, "a", "href");
+                    const sceneNumText = getText(liHtml, "a") || "";
+                    const sceneNum = parseInt(sceneNumText) || (i + 1);
+
+                    if (sceneLink) {
+                        try {
+                            const sceneHtml = await fetchDocument(sceneLink);
+                            const iframes = getIframeSrcs(sceneHtml);
+                            episodes.push(new Episode({
+                                name: "Scene " + sceneNum,
+                                url: JSON.stringify(iframes), // lưu danh sách link để loadStreams xử lý
+                                episode: sceneNum,
+                                posterUrl: poster
+                            }));
+                        } catch (e) {
+                            // Bỏ qua scene lỗi
+                        }
+                    }
+                }
+
+                if (episodes.length > 0) {
+                    return cb({
+                        success: true,
+                        data: new MultimediaItem({
+                            title: title,
+                            url: url,
+                            posterUrl: poster,
+                            type: "series",
+                            description: description,
+                            year: year,
+                            tags: tags,
+                            recommendations: recs,
+                            episodes: episodes,
+                            headers: HEADERS
+                        })
+                    });
+                }
+            }
+
+            // Nếu không phải series, là movie
+            const iframes = getIframeSrcs(html);
+            const dataUrl = JSON.stringify(iframes);
+            cb({
+                success: true,
+                data: new MultimediaItem({
+                    title: title,
+                    url: dataUrl, // sẽ được truyền vào loadStreams
+                    posterUrl: poster,
+                    type: "movie",
+                    description: description,
+                    year: year,
+                    tags: tags,
+                    recommendations: recs,
+                    headers: HEADERS
+                })
+            });
         } catch (e) {
             cb({ success: false, errorCode: "LOAD_ERROR", message: e.message });
         }
     };
 
-    // --- loadStreams ---
     globalThis.loadStreams = async function(dataUrl, cb) {
         try {
             const links = JSON.parse(dataUrl);
             const streams = [];
-            const processLink = async (vid) => {
-                let finalUrl = vid;
-                // Domain rewrites (mirrors)
-                if (vid.startsWith("https://javhdfree.icu")) {
-                    const withoutHttps = vid.replace("https://", "");
-                    const idx = withoutHttps.indexOf('/') + 1;
-                    finalUrl = "https://embedsito.com/" + withoutHttps.substring(idx);
-                } else if (vid.startsWith("https://viewsb.com")) {
-                    finalUrl = vid.replace("viewsb.com", "watchsb.com");
-                }
 
-                if (typeof globalThis.loadExtractor === 'function') {
+            // Hàm xử lý một link video
+            const processLink = async (rawLink) => {
+                const finalUrl = rewriteLink(rawLink);
+
+                // Nếu có extractor tích hợp sẵn (Dood, Streamtape,...) thì dùng
+                if (typeof globalThis.loadExtractor === "function") {
                     await new Promise((resolve) => {
-                        globalThis.loadExtractor(finalUrl, (stream) => {
-                            if (stream) streams.push(stream);
-                        });
-                        // safety timeout
-                        setTimeout(resolve, 8000);
+                        try {
+                            globalThis.loadExtractor(finalUrl, (stream) => {
+                                if (stream) {
+                                    stream.source = "JavHD";
+                                    streams.push(stream);
+                                }
+                            });
+                        } catch (e) {
+                            // fallback
+                        }
+                        setTimeout(resolve, 8000); // chờ extractor xử lý
                     });
                 } else {
-                    // fallback direct link
+                    // Không có extractor, thêm trực tiếp link
                     streams.push(new StreamResult({
                         url: finalUrl,
                         source: "JavHD",
@@ -212,7 +317,8 @@
             };
 
             await Promise.all(links.map(link => processLink(link)));
-            // Deduplicate by url+source
+
+            // Loại bỏ trùng lặp
             const deduped = [];
             const seen = new Set();
             streams.forEach(s => {
@@ -222,6 +328,7 @@
                     deduped.push(s);
                 }
             });
+
             cb({ success: true, data: deduped });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
