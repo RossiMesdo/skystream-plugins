@@ -1,0 +1,16 @@
+{
+  "packageName": "dev.lord.MissAV",
+  "name": "MissAV",
+  "version": 1,
+  "baseUrl": "https://MissAV.live",
+  "description": "MissAV plugin",
+  "authors": [
+    "Lord"
+  ],
+  "languages": [
+    "en"
+  ],
+  "categories": [
+    "Movie"
+  ]
+}
