@@ -225,98 +225,47 @@
         }
     }
 
-    // ========== LOAD STREAMS (ĐÃ SỬA THEO CƠ CHẾ MỚI) ==========
-    function parseM3U8(m3u8Body, baseUrl) {
-        const lines = m3u8Body.split('\n');
-        let bestUrl = null;
-        let bestResolution = 0;
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (line.startsWith('#EXT-X-STREAM-INF')) {
-                const resMatch = line.match(/RESOLUTION=\d+x(\d+)/i);
-                const res = resMatch ? parseInt(resMatch[1], 10) : 0;
-                const nextLine = lines[i + 1]?.trim();
-                if (nextLine && !nextLine.startsWith('#')) {
-                    const url = resolveUrl(nextLine, baseUrl);
-                    if (res > bestResolution) {
-                        bestResolution = res;
-                        bestUrl = url;
-                    }
-                }
-            }
-        }
-        if (!bestUrl) {
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (trimmed && !trimmed.startsWith('#') && trimmed.endsWith('.m3u8')) {
-                    bestUrl = resolveUrl(trimmed, baseUrl);
-                    break;
-                }
-            }
-        }
-        return bestUrl;
-    }
-
+    // ========== LOAD STREAMS (CHÍNH XÁC LOGIC CLOUDSTREAM) ==========
     async function loadStreams(dataUrl, cb) {
         try {
+            // 1. Lấy toàn bộ text của trang (dataUrl chính là URL phim)
             const html = await fetchRaw(dataUrl);
 
-            // 1. Tìm URL iframe bluetrafficstream.com
-            let iframeUrl = null;
-            const iframeMatch = html.match(/<iframe[^>]+src="([^"]*bluetrafficstream\.com[^"]*)"/i);
-            if (iframeMatch) {
-                iframeUrl = iframeMatch[1];
-            } else {
-                // Thử tìm trong script
-                const scriptMatch = html.match(/(https?:\/\/creative\.bluetrafficstream\.com\/[^"'\s]+)/i);
-                if (scriptMatch) iframeUrl = scriptMatch[1];
-            }
-
-            if (!iframeUrl) throw new Error('Iframe bluetrafficstream not found');
-
-            // 2. Tải HTML của iframe
-            const iframeHtml = await fetchRaw(iframeUrl, {
-                'Referer': BASE_URL + '/'
-            });
-
-            // 3. Tìm link .m3u8 trong iframe
-            let streamUrl = null;
-            const m3u8Match = iframeHtml.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/i);
-            if (m3u8Match) {
-                streamUrl = m3u8Match[1];
-            } else {
-                // Thử unpack script
-                let unpacked = iframeHtml;
-                if (typeof getAndUnpack === 'function') {
-                    try { unpacked = getAndUnpack(iframeHtml); } catch (e) {}
+            // 2. Giải nén JavaScript bằng getAndUnpack (đúng như Cloudstream)
+            let unpacked = html;
+            if (typeof getAndUnpack === 'function') {
+                try {
+                    unpacked = getAndUnpack(html);
+                } catch (e) {
+                    // Nếu lỗi, giữ nguyên html
                 }
-                const m3u8Unpacked = unpacked.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/i);
-                if (m3u8Unpacked) streamUrl = m3u8Unpacked[1];
             }
 
-            if (!streamUrl) throw new Error('M3U8 link not found in iframe');
+            // 3. Áp dụng regex chính xác từ Kotlin: /([a-f0-9\-]{36})/
+            const uuidRegex = /\/([a-f0-9\-]{36})\//i;
+            const match = unpacked.match(uuidRegex);
+            if (!match || !match[1]) {
+                throw new Error('Playlist ID not found');
+            }
+            const playlistId = match[1];
 
-            // 4. Tải playlist M3U8 với Referer bluetrafficstream
-            const playlistHeaders = {
-                'Referer': 'https://creative.bluetrafficstream.com/'
-            };
-            const masterBody = await fetchRaw(streamUrl, playlistHeaders);
+            // 4. Tạo URL stream surrit.com (đúng như Cloudstream)
+            const streamUrl = `https://surrit.com/${playlistId}/playlist.m3u8`;
 
-            // 5. Parse playlist để lấy stream chất lượng cao nhất
-            const finalStreamUrl = parseM3U8(masterBody, streamUrl);
-
-            if (!finalStreamUrl) throw new Error('No valid stream found in playlist');
-
-            cb({ success: true, data: [
-                new StreamResult({
-                    url: finalStreamUrl,
-                    source: 'MissAV',
-                    quality: 1080,
-                    headers: {
-                        'Referer': 'https://creative.bluetrafficstream.com/'
-                    }
-                })
-            ]});
+            // 5. Trả về StreamResult với Referer giống hệt code gốc
+            cb({
+                success: true,
+                data: [
+                    new StreamResult({
+                        url: streamUrl,
+                        source: 'MissAV',
+                        quality: 1080,
+                        headers: {
+                            'Referer': BASE_URL + '/'
+                        }
+                    })
+                ]
+            });
         } catch (e) {
             cb({ success: false, errorCode: 'STREAM_ERROR', message: e.message });
         }
