@@ -1,16 +1,16 @@
 {
-  "packageName": "dev.lord.MissAV",
+  "packageName": "dev.lorr.missav",
   "name": "MissAV",
   "version": 1,
-  "baseUrl": "https://MissAV.live",
-  "description": "MissAV plugin",
-  "authors": [
-    "Lord"
-  ],
-  "languages": [
-    "en"
-  ],
-  "categories": [
-    "Movie"
+  "baseUrl": "https://missav.live",
+  "description": "MissAV plugin for SkyStream",
+  "authors": ["Lord"],
+  "languages": ["en"],
+  "categories": ["NSFW", "Movie"],
+  "mainPage": [
+    {
+      "path": "/en/new?sort=published_at&page=",
+      "name": "Newly Added"
+    }
   ]
 }
