@@ -1,18 +1,21 @@
 [
   {
     "packageName": "dev.lord.javHD",
-    "name": "javHD",
-    "version": 1,
-    "baseUrl": "https://javHD.icu",
-    "description": "javHD plugin",
+    "name": "JavHD",
+    "version": "1.0.0",
+    "baseUrl": "https://javhd.icu",
+    "description": "JAV HD video plugin",
     "authors": [
       "Lord"
     ],
     "languages": [
-      "en"
+      "en",
+      "ja"
     ],
     "categories": [
-      "Movie"
+      "NSFW",
+      "Movie",
+      "TV"
     ],
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javHD.sky"
   },
