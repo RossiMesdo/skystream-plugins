@@ -103,10 +103,10 @@
         { name: "Naughty 0930", path: "/dm22/en/naughty0930" }
     ];
 
-    // ========== LẤY NHIỀU TRANG ĐỂ CÓ 200 VIDEO ==========
+    // Lấy nhiều trang cùng lúc để đạt ~200 video
     async function fetchCategoryVideos(cat) {
         const separator = cat.path.includes('?') ? '&' : '?';
-        const pages = [1,2,3,4,5,6,7]; // 7 trang ~ 210 video
+        const pages = [1,2,3,4,5,6,7];
         const pagePromises = pages.map(page => {
             const url = BASE_URL + cat.path + separator + 'page=' + page;
             return fetchDoc(url).catch(() => null);
@@ -226,85 +226,52 @@
         }
     }
 
-    // ========== LOAD STREAMS (cải tiến mạnh mẽ) ==========
-    // Hàm unpacker dự phòng hỗ trợ nhiều định dạng P.A.C.K.E.R
-    function unpackAnyJS(js) {
-        // Mẫu 1: eval(function(p,a,c,k,e,d){...})
-        let match = js.match(/\}\('([^']*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)\)/);
-        if (match) {
-            const data = match[1];
-            const radix = parseInt(match[2]);
-            const words = match[4].split('|');
-            return data.replace(/\b\w+\b/g, w => {
-                const idx = parseInt(w, radix);
-                return words[idx] || w;
-            });
-        }
-        // Mẫu 2: dạng đơn giản khác
-        match = js.match(/function\s*\(p,a,c,k,e,d\)\s*\{.*\}\('([^']*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)\)/);
-        if (match) {
-            const data = match[1];
-            const radix = parseInt(match[2]);
-            const words = match[4].split('|');
-            return data.replace(/\b\w+\b/g, w => {
-                const idx = parseInt(w, radix);
-                return words[idx] || w;
-            });
-        }
-        // Không unpack được, trả về gốc
-        return js;
-    }
-
+    // ========== LOAD STREAMS (BÁM SÁT CLOUDSTREAM) ==========
     async function loadStreams(dataUrl, cb) {
         try {
+            // 1. Lấy HTML trang phim (dataUrl chính là URL phim)
             const html = await fetchRaw(dataUrl);
             let unpacked = html;
 
-            // Dùng getAndUnpack nếu có
+            // 2. Dùng getAndUnpack nếu có, nếu không có hoặc lỗi thì bỏ qua
             if (typeof getAndUnpack === 'function') {
                 try {
                     unpacked = getAndUnpack(html);
                 } catch (e) {
-                    unpacked = unpackAnyJS(html);
+                    // Giữ nguyên html
                 }
-            } else {
-                unpacked = unpackAnyJS(html);
             }
 
-            // Tìm UUID bằng regex mạnh: UUID chuẩn hoặc dạng hex 32-36 ký tự trong đường dẫn
-            let playlistId = null;
-            const patterns = [
-                /\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\//i,   // UUID chuẩn
-                /surrit\.com\/([a-f0-9\-]{36})\/playlist\.m3u8/i,
-                /playlist\/([a-f0-9\-]{36})/i,
-                /([a-f0-9]{32})/i,                                                      // 32 hex
-                /\/([a-f0-9\-]{36})\//i                                                  // dạng cũ
-            ];
+            // 3. Áp dụng regex đúng như Cloudstream: tìm UUID trong chuỗi đã unpack
+            const uuidRegex = /\/([a-f0-9\-]{36})\//i;
+            let match = unpacked.match(uuidRegex);
+            let playlistId = match ? match[1] : null;
 
-            for (const regex of patterns) {
-                const m1 = unpacked.match(regex);
-                if (m1) { playlistId = m1[1]; break; }
-                const m2 = html.match(regex);
-                if (m2) { playlistId = m2[1]; break; }
-            }
-
-            // Thử tìm trực tiếp link m3u8 trong HTML
+            // 4. Nếu không tìm thấy trong unpacked, thử quét tất cả thẻ <script> trên trang gốc
             if (!playlistId) {
-                const m3u8Match = html.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/i);
-                if (m3u8Match) {
-                    return cb({ success: true, data: [
-                        new StreamResult({
-                            url: m3u8Match[1],
-                            source: 'MissAV',
-                            quality: 1080,
-                            headers: { 'Referer': BASE_URL + '/' }
-                        })
-                    ]});
+                const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+                let scriptMatch;
+                while ((scriptMatch = scriptRegex.exec(html)) !== null) {
+                    const scriptContent = scriptMatch[1];
+                    const uuidMatch = scriptContent.match(uuidRegex);
+                    if (uuidMatch) {
+                        playlistId = uuidMatch[1];
+                        break;
+                    }
+                    // Thử unpack từng script nếu cần (có thể bỏ qua)
                 }
+            }
+
+            // 5. Nếu vẫn không có, thử regex mở rộng: UUID không cần dấu / trước/sau
+            if (!playlistId) {
+                const looseRegex = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
+                const looseMatch = html.match(looseRegex);
+                if (looseMatch) playlistId = looseMatch[1];
             }
 
             if (!playlistId) throw new Error('Playlist ID not found');
 
+            // 6. Tạo URL stream giống hệt Cloudstream
             const streamUrl = `https://surrit.com/${playlistId}/playlist.m3u8`;
 
             cb({ success: true, data: [
