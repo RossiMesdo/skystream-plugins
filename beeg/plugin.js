@@ -1,30 +1,19 @@
 (function () {
 
-    const BASE_URL = "https://store.externulls.com";
-
     async function getHome(cb) {
 
         try {
 
-            const res = await http_get(BASE_URL + "/api/video/random");
-
-            const data = JSON.parse(res.body);
-
-            const items = [];
-
-            for (const vid of data.data.slice(0, 20)) {
-
-                items.push(new MultimediaItem({
-                    title: vid.title || "No title",
-                    url: String(vid.id),
-                    posterUrl: vid.preview_url || vid.thumbnail || ""
-                }));
-            }
+            const item = new MultimediaItem({
+                title: "Beeg Test",
+                url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+                posterUrl: "https://picsum.photos/300/450"
+            });
 
             cb({
                 success: true,
                 data: {
-                    "Featured": items
+                    "Featured": [item]
                 }
             });
 
@@ -42,26 +31,15 @@
 
         try {
 
-            const res = await http_get(
-                BASE_URL + "/api/video/search/" + encodeURIComponent(query)
-            );
-
-            const data = JSON.parse(res.body);
-
-            const items = [];
-
-            for (const vid of data.data) {
-
-                items.push(new MultimediaItem({
-                    title: vid.title || "No title",
-                    url: String(vid.id),
-                    posterUrl: vid.preview_url || vid.thumbnail || ""
-                }));
-            }
+            const item = new MultimediaItem({
+                title: query || "Search Test",
+                url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+                posterUrl: "https://picsum.photos/300/450"
+            });
 
             cb({
                 success: true,
-                data: items
+                data: [item]
             });
 
         } catch (e) {
@@ -78,21 +56,14 @@
 
         try {
 
-            const res = await http_get(BASE_URL + "/api/video/" + url);
-
-            const vid = JSON.parse(res.body).data;
-
             const item = new MultimediaItem({
-                title: vid.title || "No title",
+                title: "Beeg Test",
                 url: url,
-                description: vid.description || "",
-                posterUrl: vid.preview_url || vid.thumbnail || "",
+                posterUrl: "https://picsum.photos/300/450",
                 episodes: [
                     new Episode({
                         name: "Video",
-                        url: vid.hls_resources?.["fl_cdn_720"] ||
-                             vid.hls_resources?.["fl_cdn_480"] ||
-                             vid.file
+                        url: url
                     })
                 ]
             });
