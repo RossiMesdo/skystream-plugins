@@ -1,277 +1,237 @@
-(function() {
-    const BASE_URL = typeof manifest !== 'undefined' && manifest.baseUrl ? manifest.baseUrl : "https://missav.live";
+(function () {
+    const MAIN_URL = (typeof manifest !== "undefined" && manifest.baseUrl) || "https://missav.live";
     const HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Referer": MAIN_URL
     };
 
-    // ========== HELPERS ==========
-    async function fetchDoc(url) {
-        const res = await http_get(url, HEADERS);
-        if (res.status !== 200) throw new Error('HTTP ' + res.status);
-        return await parseHtml(res.body);
-    }
-
-    async function fetchRaw(url, extraHeaders = {}) {
-        const res = await http_get(url, { ...HEADERS, ...extraHeaders });
-        if (res.status !== 200) throw new Error('HTTP ' + res.status);
-        return res.body;
-    }
-
-    function resolveUrl(href, base) {
-        if (!href) return '';
-        if (href.startsWith('http')) return href;
-        if (href.startsWith('//')) return 'https:' + href;
-        if (href.startsWith('/')) return base + href;
-        return base + '/' + href;
-    }
-
-    function cleanText(el) {
-        return el ? el.textContent.trim() : '';
-    }
-
-    // ========== ITEM PARSING ==========
-    function parseMainPageItem(el, base) {
-        const linkEl = el.querySelector('a[href*="/en/"], a[href*="/dm"]');
-        if (!linkEl) return null;
-        const rawHref = linkEl.getAttribute('href');
-        const url = resolveUrl(rawHref, base);
-        if (!url) return null;
-
-        const titleEl = el.querySelector('div.my-2 a, div.title a, a.text-secondary');
-        let baseTitle = titleEl ? cleanText(titleEl) : cleanText(linkEl);
-        if (!baseTitle) return null;
-
-        const blacklist = /^(Recent update|Contact|Support|DMCA|Home)$/i;
-        if (blacklist.test(baseTitle)) return null;
-
-        const combined = (linkEl.getAttribute('alt') || '') + (rawHref || '') + (el.outerHTML || '');
-        const isUncensored = /uncensored[-_ ]?leak/i.test(combined);
-        const title = (isUncensored && !baseTitle.startsWith('Uncensored - ', true))
-            ? 'Uncensored - ' + baseTitle
-            : baseTitle;
-
-        const img = el.querySelector('img');
-        const poster = img?.getAttribute('data-src') || img?.getAttribute('src') || '';
-        const posterUrl = resolveUrl(poster, base);
-        if (!posterUrl) return null;
-
-        return { title, url, posterUrl };
-    }
-
-    function parseListItems(doc, base) {
-        const items = doc.querySelectorAll('div.grid.grid-cols-2 > div, div.thumbnail.group');
-        const seenUrls = new Set();
-        const result = [];
-        for (const el of items) {
-            const item = parseMainPageItem(el, base);
-            if (item && !seenUrls.has(item.url)) {
-                seenUrls.add(item.url);
-                result.push(new MultimediaItem({
-                    title: item.title,
-                    url: item.url,
-                    posterUrl: item.posterUrl,
-                    type: 'nsfw',
-                    headers: HEADERS
-                }));
-            }
-        }
-        return result;
-    }
-
-    // ========== DANH MỤC ==========
     const CATEGORIES = [
-        { name: "Weekly Hot", path: "/dm169/en/weekly-hot?sort=weekly_views" },
-        { name: "Monthly Hot", path: "/dm263/en/monthly-hot?sort=views" },
-        { name: "Newly Added", path: "/en/new?sort=published_at" },
-        { name: "English Subtitles", path: "/en/english-subtitle" },
-        { name: "Uncensored Leak", path: "/dm628/en/uncensored-leak" },
-        { name: "FC2", path: "/dm150/en/fc2" },
-        { name: "Madou", path: "/dm35/en/madou" },
-        { name: "K-Live", path: "/en/klive" },
-        { name: "C-Live", path: "/en/clive" },
-        { name: "Tokyo Hot", path: "/dm29/en/tokyohot" },
-        { name: "HEYZO", path: "/dm1198483/en/heyzo" },
-        { name: "1pondo", path: "/dm2469695/en/1pondo" },
-        { name: "Caribbeancom", path: "/dm3959622/en/caribbeancom" },
-        { name: "Caribbeancom Premium", path: "/dm48032/en/caribbeancompr" },
-        { name: "10musume", path: "/dm3710098/en/10musume" },
-        { name: "Pacopacomama", path: "/dm1342558/en/pacopacomama" },
-        { name: "Gachinco", path: "/dm136/en/gachinco" },
-        { name: "XXX-AV", path: "/dm29/en/xxxav" },
-        { name: "Married Slash", path: "/dm24/en/marriedslash" },
-        { name: "Naughty 4610", path: "/dm20/en/naughty4610" },
-        { name: "Naughty 0930", path: "/dm22/en/naughty0930" }
+        { name: "Weekly Hot",            url: `${MAIN_URL}/dm169/en/weekly-hot?sort=weekly_views` },
+        { name: "Monthly Hot",           url: `${MAIN_URL}/dm263/en/monthly-hot?sort=views` },
+        { name: "Newly Added",           url: `${MAIN_URL}/en/new?sort=published_at` },
+        { name: "English Subtitles",     url: `${MAIN_URL}/en/english-subtitle` },
+        { name: "Uncensored Leak",       url: `${MAIN_URL}/dm628/en/uncensored-leak` },
+        { name: "FC2",                   url: `${MAIN_URL}/dm150/en/fc2` },
+        { name: "Madou",                 url: `${MAIN_URL}/dm35/en/madou` },
+        { name: "K-Live",                url: `${MAIN_URL}/en/klive` },
+        { name: "C-Live",                url: `${MAIN_URL}/en/clive` },
+        { name: "Tokyo Hot",             url: `${MAIN_URL}/dm29/en/tokyohot` },
+        { name: "HEYZO",                 url: `${MAIN_URL}/dm1198483/en/heyzo` },
+        { name: "1pondo",                url: `${MAIN_URL}/dm2469695/en/1pondo` },
+        { name: "Caribbeancom",          url: `${MAIN_URL}/dm3959622/en/caribbeancom` },
+        { name: "Caribbeancom Premium",  url: `${MAIN_URL}/dm48032/en/caribbeancompr` },
+        { name: "10musume",              url: `${MAIN_URL}/dm3710098/en/10musume` },
+        { name: "Pacopacomama",          url: `${MAIN_URL}/dm1342558/en/pacopacomama` },
+        { name: "Gachinco",              url: `${MAIN_URL}/dm136/en/gachinco` },
+        { name: "XXX-AV",               url: `${MAIN_URL}/dm29/en/xxxav` },
+        { name: "Married Slash",         url: `${MAIN_URL}/dm24/en/marriedslash` },
+        { name: "Naughty 4610",          url: `${MAIN_URL}/dm20/en/naughty4610` },
+        { name: "Naughty 0930",          url: `${MAIN_URL}/dm22/en/naughty0930` }
     ];
 
-    async function fetchCategoryVideos(cat) {
-        const separator = cat.path.includes('?') ? '&' : '?';
-        const pages = [1,2,3,4,5,6,7];
-        const pagePromises = pages.map(page => {
-            const url = BASE_URL + cat.path + separator + 'page=' + page;
-            return fetchDoc(url).catch(() => null);
-        });
-        const docs = await Promise.all(pagePromises);
-        const allItems = [];
-        const seenUrls = new Set();
-        for (const doc of docs) {
-            if (!doc) continue;
-            const items = parseListItems(doc, BASE_URL);
-            for (const item of items) {
-                if (!seenUrls.has(item.url)) {
-                    seenUrls.add(item.url);
-                    allItems.push(item);
-                    if (allItems.length >= 200) break;
-                }
-            }
-            if (allItems.length >= 200) break;
-        }
-        return allItems;
+    const BLACKLIST = ["Recent update", "Contact", "Support", "DMCA", "Home"];
+
+    function buildPageUrl(baseUrl, page) {
+        if (page <= 1) return baseUrl;
+        const sep = baseUrl.includes("?") ? "&" : "?";
+        return `${baseUrl}${sep}page=${page}`;
     }
 
-    // ========== GET HOME ==========
+    function parseItems(doc) {
+        const items = [];
+        const seen = new Set();
+        doc.querySelectorAll("div.grid.grid-cols-2 > div, div.thumbnail.group").forEach(el => {
+            const link = el.querySelector("a[href*='/en/'], a[href*='/dm']");
+            if (!link) return;
+            let href = link.getAttribute("href") || "";
+            if (!href) return;
+            if (!href.startsWith("http")) href = MAIN_URL + href;
+
+            const titleEl = el.querySelector("div.my-2 a, div.title a, a.text-secondary");
+            let title = (titleEl?.textContent || link.textContent || "").trim();
+            if (!title || BLACKLIST.some(b => title.toLowerCase() === b.toLowerCase())) return;
+
+            // Mark uncensored
+            const isUncensored = /uncensored[-_ ]?leak/i.test(link.getAttribute("alt") + link.getAttribute("href") + el.innerHTML);
+            if (isUncensored && !title.toLowerCase().startsWith("uncensored - ")) {
+                title = `Uncensored - ${title}`;
+            }
+
+            const img = el.querySelector("img");
+            let poster = "";
+            if (img) poster = img.getAttribute("data-src") || img.getAttribute("src") || "";
+            if (!poster) return; // skip items without poster (nav/footer links)
+
+            if (seen.has(href)) return;
+            seen.add(href);
+
+            items.push(new MultimediaItem({ title, url: href, posterUrl: poster, type: "movie" }));
+        });
+        return items;
+    }
+
+    async function fetchCategory(catUrl, pages) {
+        const results = await Promise.all(
+            Array.from({ length: pages }, (_, i) => i + 1).map(async p => {
+                try {
+                    const res = await http_get(buildPageUrl(catUrl, p), HEADERS);
+                    if (!res || !res.body) return [];
+                    const doc = await parseHtml(res.body);
+                    return parseItems(doc);
+                } catch (e) {
+                    return [];
+                }
+            })
+        );
+        const seen = new Set();
+        return results.flat().filter(i => { if (seen.has(i.url)) return false; seen.add(i.url); return true; });
+    }
+
     async function getHome(cb) {
         try {
-            const homeData = {};
-            const results = await Promise.allSettled(
-                CATEGORIES.map(async cat => {
-                    const items = await fetchCategoryVideos(cat);
-                    return { name: cat.name, items };
-                })
-            );
-
-            results.forEach(res => {
-                if (res.status === 'fulfilled' && res.value.items.length) {
-                    homeData[res.value.name] = res.value.items;
+            const data = {};
+            await Promise.all(CATEGORIES.map(async cat => {
+                try {
+                    const items = await fetchCategory(cat.url, 3);
+                    if (items.length > 0) data[cat.name] = items;
+                } catch (e) {
+                    console.error(`MissAV getHome [${cat.name}]: ${e.message}`);
                 }
-            });
-
-            if (Object.keys(homeData).length === 0) throw new Error('No categories loaded');
-            cb({ success: true, data: homeData });
+            }));
+            cb({ success: true, data });
         } catch (e) {
-            cb({ success: false, errorCode: 'HOME_ERROR', message: e.message });
+            cb({ success: false, errorCode: "HOME_ERROR", message: e.message });
         }
     }
 
-    // ========== SEARCH ==========
     async function search(query, cb) {
         try {
-            const url = BASE_URL + '/en/search/' + encodeURIComponent(query);
-            const doc = await fetchDoc(url);
-            const items = parseListItems(doc, BASE_URL);
+            const pages = await Promise.all([1, 2, 3].map(async p => {
+                const url = p === 1
+                    ? `${MAIN_URL}/en/search/${encodeURIComponent(query)}`
+                    : `${MAIN_URL}/en/search/${encodeURIComponent(query)}?page=${p}`;
+                try {
+                    const res = await http_get(url, HEADERS);
+                    if (!res || !res.body) return [];
+                    const doc = await parseHtml(res.body);
+                    return parseItems(doc);
+                } catch (e) { return []; }
+            }));
+            const seen = new Set();
+            const items = pages.flat().filter(i => { if (seen.has(i.url)) return false; seen.add(i.url); return true; });
             cb({ success: true, data: items });
         } catch (e) {
-            cb({ success: false, errorCode: 'SEARCH_ERROR', message: e.message });
+            cb({ success: false, errorCode: "SEARCH_ERROR", message: e.message });
         }
     }
 
-    // ========== LOAD ==========
     async function load(url, cb) {
         try {
-            const doc = await fetchDoc(url);
-            const titleEl = doc.querySelector('h1.text-base');
-            if (!titleEl) throw new Error('Title not found');
-            const title = titleEl.textContent.trim();
+            const res = await http_get(url, HEADERS);
+            if (!res || !res.body) return cb({ success: false, errorCode: "LOAD_ERROR", message: "Empty response" });
+            const doc = await parseHtml(res.body);
 
-            const posterMeta = doc.querySelector('meta[property="og:image"]');
-            const posterUrl = posterMeta ? resolveUrl(posterMeta.getAttribute('content'), BASE_URL) : '';
+            const title = doc.querySelector("h1.text-base")?.textContent?.trim();
+            if (!title) return cb({ success: false, errorCode: "LOAD_ERROR", message: "No title" });
 
-            const timeEl = doc.querySelector('time');
-            let year = null;
-            if (timeEl) {
-                const parts = timeEl.textContent.split('-');
-                year = parseInt(parts[0]);
-                if (isNaN(year)) year = null;
-            }
+            let poster = doc.querySelector("meta[property='og:image']")?.getAttribute("content") || "";
+            if (poster && !poster.startsWith("http")) poster = MAIN_URL + poster;
+
+            const yearText = doc.querySelector("time")?.textContent?.trim() || "";
+            const year = parseInt(yearText.split("-")[0]) || undefined;
 
             const tags = [];
-            doc.querySelectorAll('div.text-secondary:contains(genre) a').forEach(a => tags.push(a.textContent.trim()));
-
-            const actors = [];
-            doc.querySelectorAll('div.text-secondary:contains(actress) a').forEach(a => {
-                actors.push(new Actor({ name: a.textContent.trim() }));
-            });
-
-            let description = '';
-            const descDiv = doc.querySelector('div.movie-desc, div.description, div.entry-content');
-            if (descDiv) {
-                description = descDiv.textContent.trim();
-            }
-            if (!description) {
-                const descMeta = doc.querySelector('meta[name="description"]');
-                if (descMeta) description = descMeta.getAttribute('content') || '';
-            }
-
-            const episode = new Episode({
-                name: title,
-                url: url,
-                posterUrl: posterUrl,
-                description: description
-            });
-
-            cb({ success: true, data: new MultimediaItem({
-                title: title,
-                url: url,
-                posterUrl: posterUrl,
-                type: 'movie',
-                year: year,
-                tags: tags,
-                cast: actors,
-                description: description,
-                episodes: [episode],
-                headers: HEADERS
-            })});
-        } catch (e) {
-            cb({ success: false, errorCode: 'LOAD_ERROR', message: e.message });
-        }
-    }
-
-    // ========== LOAD STREAMS (CHÍNH XÁC LOGIC CLOUDSTREAM) ==========
-    async function loadStreams(dataUrl, cb) {
-        try {
-            // 1. Lấy toàn bộ text của trang (dataUrl chính là URL phim)
-            const html = await fetchRaw(dataUrl);
-
-            // 2. Giải nén JavaScript bằng getAndUnpack (đúng như Cloudstream)
-            let unpacked = html;
-            if (typeof getAndUnpack === 'function') {
-                try {
-                    unpacked = getAndUnpack(html);
-                } catch (e) {
-                    // Nếu lỗi, giữ nguyên html
+            doc.querySelectorAll("div.text-secondary a").forEach(a => {
+                const parent = a.closest("div.text-secondary");
+                if (parent && parent.textContent.toLowerCase().includes("genre")) {
+                    const t = a.textContent.trim();
+                    if (t) tags.push(t);
                 }
-            }
+            });
 
-            // 3. Áp dụng regex chính xác từ Kotlin: /([a-f0-9\-]{36})/
-            const uuidRegex = /\/([a-f0-9\-]{36})\//i;
-            const match = unpacked.match(uuidRegex);
-            if (!match || !match[1]) {
-                throw new Error('Playlist ID not found');
-            }
-            const playlistId = match[1];
+            const cast = [];
+            doc.querySelectorAll("div.text-secondary a").forEach(a => {
+                const parent = a.closest("div.text-secondary");
+                if (parent && parent.textContent.toLowerCase().includes("actress")) {
+                    const n = a.textContent.trim();
+                    if (n) cast.push(new Actor({ name: n }));
+                }
+            });
 
-            // 4. Tạo URL stream surrit.com (đúng như Cloudstream)
-            const streamUrl = `https://surrit.com/${playlistId}/playlist.m3u8`;
-
-            // 5. Trả về StreamResult với Referer giống hệt code gốc
             cb({
                 success: true,
-                data: [
-                    new StreamResult({
-                        url: streamUrl,
-                        source: 'MissAV',
-                        quality: 1080,
-                        headers: {
-                            'Referer': BASE_URL + '/'
-                        }
-                    })
-                ]
+                data: new MultimediaItem({
+                    title,
+                    url,
+                    posterUrl: poster,
+                    type: "movie",
+                    year,
+                    tags,
+                    cast,
+                    episodes: [
+                        new Episode({
+                            name: "Play",
+                            url,
+                            season: 1,
+                            episode: 1,
+                            posterUrl: poster
+                        })
+                    ]
+                })
             });
         } catch (e) {
-            cb({ success: false, errorCode: 'STREAM_ERROR', message: e.message });
+            cb({ success: false, errorCode: "LOAD_ERROR", message: e.message });
         }
     }
 
-    // Export
+    async function loadStreams(url, cb) {
+        try {
+            const res = await http_get(url, HEADERS);
+            const body = res?.body || "";
+
+            // Use getAndUnpack (P.A.C.K.E.R. unpacker) — available as global in SkyStream
+            let unpacked = "";
+            if (typeof getAndUnpack === "function") {
+                try { unpacked = getAndUnpack(body) || ""; } catch (e) {}
+            }
+
+            // Extract playlist UUID from unpacked script
+            const uuidMatch = /\/([a-f0-9\-]{36})\//.exec(unpacked);
+            if (uuidMatch) {
+                const playlistId = uuidMatch[1];
+                return cb({
+                    success: true,
+                    data: [
+                        new StreamResult({
+                            url: `https://surrit.com/${playlistId}/playlist.m3u8`,
+                            source: "MissAV",
+                            headers: { "Referer": `${MAIN_URL}/` }
+                        })
+                    ]
+                });
+            }
+
+            // Fallback: try raw body
+            const uuidMatch2 = /\/([a-f0-9\-]{36})\//.exec(body);
+            if (uuidMatch2) {
+                return cb({
+                    success: true,
+                    data: [
+                        new StreamResult({
+                            url: `https://surrit.com/${uuidMatch2[1]}/playlist.m3u8`,
+                            source: "MissAV",
+                            headers: { "Referer": `${MAIN_URL}/` }
+                        })
+                    ]
+                });
+            }
+
+            cb({ success: true, data: [] });
+        } catch (e) {
+            cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
+        }
+    }
+
     globalThis.getHome = getHome;
     globalThis.search = search;
     globalThis.load = load;
