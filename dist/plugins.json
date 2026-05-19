@@ -246,6 +246,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.istreamflare.sky"
   },
   {
+    "packageName": "dev.lord.javseen",
+    "name": "Javseen",
+    "version": 1,
+    "baseUrl": "https://javseen.tv",
+    "description": "Javseen - JAV streaming with multiple server support.",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "jp",
+      "en"
+    ],
+    "categories": [
+      "NSFW"
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javseen.sky"
+  },
+  {
     "packageName": "dev.akash.stars.moviesdrive",
     "name": "Movies Drive",
     "version": 3,
