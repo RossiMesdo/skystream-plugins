@@ -303,18 +303,19 @@
   },
   {
     "packageName": "dev.lord.xchina",
-    "name": "xchina",
+    "name": "XChina",
     "version": 1,
     "baseUrl": "https://en.xchina.co",
-    "description": "xchina plugin",
+    "description": "XChina - Chinese adult content. VPN may be needed.",
     "authors": [
       "Lord"
     ],
     "languages": [
-      "en"
+      "en",
+      "zh"
     ],
     "categories": [
-      "Movie"
+      "NSFW"
     ],
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xchina.sky"
   },
