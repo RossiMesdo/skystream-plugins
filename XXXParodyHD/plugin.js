@@ -326,47 +326,44 @@
             }
 
             const html = res.body || "";
-
-            // HTML thực tế:
-            // <a href="https://doply.net/e/xxx" rel="nofollow" id="#iframe">DoodStream</a>
-            // CloudStream dùng: document.select("div.Rtable1 a#\\#iframe")
             const videoUrls = [];
 
-            // Tìm thẻ <a id="#iframe"> — hỗ trợ cả hai thứ tự attribute
-            const iframeRegex = /<a\s[^>]*id="#iframe"[^>]*>/gi;
-            let tagMatch;
-            while ((tagMatch = iframeRegex.exec(html)) !== null) {
-                const tag = tagMatch[0];
-                const hrefMatch = tag.match(/href="(https?:\/\/[^"]+)"/i);
-                if (hrefMatch) {
-                    const u = hrefMatch[1].trim();
-                    if (u && !isBadUrl(u)) videoUrls.push(u);
-                }
+            // === PHƯƠNG PHÁP 1: data-fl-source (URL embed gốc, ưu tiên nhất) ===
+            // Ví dụ: data-fl-source="https://lulustream.com/e/luy5d38rt9zf"
+            const flSourceRegex = /data-fl-source="(https?:\/\/[^"]+)"/gi;
+            let m;
+            while ((m = flSourceRegex.exec(html)) !== null) {
+                const u = m[1].trim();
+                if (u && !isBadUrl(u)) videoUrls.push(u);
             }
 
-            // Fallback: lấy tất cả href trong Rtable1
+            // === PHƯƠNG PHÁP 2: data-fl-url (URL trang xem gốc) ===
+            // Ví dụ: data-fl-url="https://doodstream.com/d/ifddn4x7b9tw"
+            const flUrlRegex = /data-fl-url="(https?:\/\/[^"]+)"/gi;
+            while ((m = flUrlRegex.exec(html)) !== null) {
+                const u = m[1].trim();
+                if (u && !isBadUrl(u) && !videoUrls.includes(u)) videoUrls.push(u);
+            }
+
+            // === PHƯƠNG PHÁP 3: href của <a id="#iframe"> (mirror URL) ===
+            // Ví dụ: href="https://doply.net/e/ifddn4x7b9tw"
             if (!videoUrls.length) {
-                const rtableRegex = /<div[^>]+class="[^"]*Rtable1[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]+class="[^"]*Rtable1[^"]*"[^>]*>(?![\s\S]*Rtable1)|\n\n)/gi;
-                let rtableMatch;
-                while ((rtableMatch = rtableRegex.exec(html)) !== null) {
-                    const area = rtableMatch[1];
-                    const hrefRegex2 = /href="(https?:\/\/[^"]+)"/gi;
-                    let hm;
-                    while ((hm = hrefRegex2.exec(area)) !== null) {
-                        const u = hm[1].trim();
-                        if (u && !isBadUrl(u) && (isVideoHost(u) || /\/e\/[a-z0-9]+/i.test(u))) {
-                            videoUrls.push(u);
-                        }
+                const iframeRegex = /<a\s[^>]*id="#iframe"[^>]*>/gi;
+                while ((m = iframeRegex.exec(html)) !== null) {
+                    const tag = m[0];
+                    const hrefMatch = tag.match(/href="(https?:\/\/[^"]+)"/i);
+                    if (hrefMatch) {
+                        const u = hrefMatch[1].trim();
+                        if (u && !isBadUrl(u)) videoUrls.push(u);
                     }
                 }
             }
 
-            // Fallback cuối: quét toàn bộ HTML tìm video host
+            // === PHƯƠNG PHÁP 4: fallback toàn trang theo video host ===
             if (!videoUrls.length) {
                 const globalRegex = /href="(https?:\/\/[^"]+)"/gi;
-                let gm;
-                while ((gm = globalRegex.exec(html)) !== null) {
-                    const u = gm[1].trim();
+                while ((m = globalRegex.exec(html)) !== null) {
+                    const u = m[1].trim();
                     if (u && !isBadUrl(u) && isVideoHost(u)) videoUrls.push(u);
                 }
             }
@@ -379,19 +376,18 @@
 
             await Promise.allSettled(
                 videoUrls.map(async function (videoUrl) {
-                    // Đổi mirror URL → URL gốc để loadExtractor nhận ra host
+                    // Thử normalize mirror → real host
                     const normalizedUrl = normalizeMirrorUrl(videoUrl);
 
                     if (typeof globalThis.loadExtractor === "function") {
                         try {
                             const before = streamResults.length;
-                            // Thử với URL đã normalize trước
                             await globalThis.loadExtractor(normalizedUrl, function (stream) {
                                 streamResults.push(stream);
                             });
                             if (streamResults.length > before) return;
 
-                            // Thử lại với URL gốc nếu normalize không ra
+                            // Thử URL gốc nếu normalize không ra
                             if (normalizedUrl !== videoUrl) {
                                 await globalThis.loadExtractor(videoUrl, function (stream) {
                                     streamResults.push(stream);
@@ -401,22 +397,22 @@
                         } catch (_) {}
                     }
 
-                    // Fallback: push thẳng URL gốc
+                    // Fallback: push thẳng
                     streamResults.push(new StreamResult({
-                        url: videoUrl,
+                        url: normalizedUrl,
                         source: "XXXParodyHD",
                         headers: { "Referer": BASE_URL }
                     }));
                 })
             );
 
-            // Deduplicate theo url
+            // Deduplicate
             const deduped = [];
-            const seen = new Set();
+            const seen2 = new Set();
             streamResults.forEach(function (item) {
                 if (!item || !item.url) return;
-                if (seen.has(item.url)) return;
-                seen.add(item.url);
+                if (seen2.has(item.url)) return;
+                seen2.add(item.url);
                 deduped.push(item);
             });
 
