@@ -356,6 +356,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.xdmovies.sky"
   },
   {
+    "packageName": "dev.lord.xnhau",
+    "name": "xNhau",
+    "version": 1,
+    "baseUrl": "https://xnhau.im",
+    "description": "xNhau - Phim người lớn tiếng Việt",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "vi"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xnhau.sky"
+  },
+  {
     "packageName": "dev.akash.stars.yflix",
     "name": "Yflix",
     "version": 5,
