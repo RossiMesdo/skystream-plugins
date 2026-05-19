@@ -1,303 +1,263 @@
 (function () {
+    /**
+     * Vlxx Plugin for SkyStream
+     * Converted from CloudStream (Kotlin) by Lord
+     * Original author: jacekun
+     * Language: Vietnamese | Type: NSFW
+     */
 
-    const BASE_HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
-        "Referer": manifest.baseUrl + "/"
+    const BASE_URL = (typeof manifest !== "undefined" && manifest?.baseUrl) || "https://vlxx.moi";
+    const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
+    const HEADERS = {
+        "User-Agent": UA,
+        "Referer": BASE_URL + "/"
     };
 
-    async function request(url, options = {}) {
-        const response = await fetch(url, {
-            method: options.method || "GET",
-            headers: {
-                ...BASE_HEADERS,
-                ...(options.headers || {})
-            },
-            body: options.body || null
-        });
+    // ==================== HELPERS ====================
 
-        return await response.text();
-    }
-
-    function absolute(url) {
-        if (!url) return "";
-        if (url.startsWith("http")) return url;
+    function fixUrl(url) {
+        if (!url) return null;
+        url = url.trim();
         if (url.startsWith("//")) return "https:" + url;
-        return manifest.baseUrl + url;
+        if (url.startsWith("http")) return url;
+        if (url.startsWith("/")) return BASE_URL + url;
+        return null;
     }
 
-    function clean(text = "") {
-        return text
-            .replace(/&amp;/g, "&")
-            .replace(/&#039;/g, "'")
-            .replace(/&quot;/g, '"')
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">")
-            .trim();
+    function stripTags(html) {
+        return (html || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
     }
 
-    function parseVideos(html) {
-
+    // Parse danh sách video từ HTML block div.video-item
+    function parseVideoItems(html) {
         const items = [];
+        const seen = new Set();
 
-        const matches = [
-            ...html.matchAll(/<div[^>]*class="video-item[\s\S]*?<\/div>\s*<\/div>/gi)
-        ];
+        const blockRegex = /<div[^>]+class="[^"]*\bvideo-item\b[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
+        let block;
+        while ((block = blockRegex.exec(html)) !== null) {
+            const inner = block[0];
 
-        for (const match of matches) {
+            const aMatch = inner.match(/<a[^>]+href="([^"]+)"/i);
+            const href = aMatch ? fixUrl(aMatch[1]) : null;
+            if (!href || seen.has(href)) continue;
+            seen.add(href);
 
-            const block = match[0];
+            // Poster: ưu tiên data-original → src
+            const origMatch = inner.match(/data-original="([^"]+)"/i);
+            const srcMatch = inner.match(/<img[^>]+src="([^"]+)"/i);
+            const poster = fixUrl(origMatch?.[1] || srcMatch?.[1]);
 
-            try {
+            // Title từ div.video-name
+            const nameMatch = inner.match(/<div[^>]+class="[^"]*\bvideo-name\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+            const title = nameMatch ? stripTags(nameMatch[1]) : "Unknown";
+            if (!title || !href) continue;
 
-                const href =
-                    block.match(/href="([^"]+)"/i)?.[1];
-
-                const title =
-                    block.match(/title="([^"]+)"/i)?.[1]
-                    || block.match(/alt="([^"]+)"/i)?.[1];
-
-                const poster =
-                    block.match(/data-src="([^"]+)"/i)?.[1]
-                    || block.match(/src="([^"]+)"/i)?.[1];
-
-                if (!href || !title || !poster) continue;
-
-                items.push(new MultimediaItem({
-                    title: clean(title),
-                    url: absolute(href),
-                    posterUrl: absolute(poster),
-                    type: "movie"
-                }));
-
-            } catch (_) {}
+            items.push(new MultimediaItem({
+                title,
+                url: href,
+                posterUrl: poster,
+                type: "movie",
+                isAdult: true,
+                contentRating: "18+"
+            }));
         }
-
         return items;
     }
 
-    async function getHome(cb) {
+    // Extract video ID từ URL path (phần cuối trước dấu /)
+    // Ví dụ: https://vlxx.sex/video/abc-123/ -> "123" (phần số cuối)
+    function extractIdFromUrl(url) {
+        // Lấy segment cuối có chứa số
+        const clean = url.replace(/\/$/, "");
+        const parts = clean.split("/");
+        const last = parts[parts.length - 1] || parts[parts.length - 2];
+        // Thử lấy số cuối từ slug
+        const numMatch = last.match(/(\d+)$/);
+        if (numMatch) return numMatch[1];
+        return last;
+    }
 
+    // Parse sources từ JS response của ajax.php
+    // Format gốc: var opts = {\r\n\t\t\t\t\t\tsources: [{file:"...", label:"..."}]}
+    function parseSourcesFromJs(text) {
+        const streams = [];
         try {
+            // Tìm mảng sources
+            const marker = "sources:";
+            const start = text.indexOf(marker);
+            if (start === -1) return streams;
 
-            const html = await request(manifest.baseUrl);
+            const arrStart = text.indexOf("[", start);
+            if (arrStart === -1) return streams;
+            const arrEnd = text.indexOf("]", arrStart);
+            if (arrEnd === -1) return streams;
 
-            const latest = parseVideos(html);
+            let raw = text.substring(arrStart, arrEnd + 1);
 
-            const categories = {};
+            // Unescape
+            raw = raw
+                .replace(/\\r/g, "")
+                .replace(/\\t/g, "")
+                .replace(/\\n/g, "")
+                .replace(/\\"/g, '"')
+                .replace(/\\\\\//g, "/")
+                .replace(/\\\//g, "/");
 
-            categories["Trending"] = latest.slice(0, 15);
-            categories["Latest"] = latest.slice(15, 50);
-
-            cb({
-                success: true,
-                data: categories
-            });
-
+            // Parse từng object trong mảng thủ công (tránh lỗi JSON do single quote)
+            const objRegex = /\{([^}]+)\}/g;
+            let obj;
+            while ((obj = objRegex.exec(raw)) !== null) {
+                const inner = obj[1];
+                const fileMatch = inner.match(/['"']?file['"']?\s*:\s*['"]([^'"]+)['"]/);
+                const labelMatch = inner.match(/['"']?label['"']?\s*:\s*['"]([^'"]+)['"]/);
+                if (fileMatch) {
+                    const fileUrl = fileMatch[1].trim();
+                    const label = labelMatch ? labelMatch[1].trim() : "";
+                    if (fileUrl) {
+                        streams.push({ url: fileUrl, label });
+                    }
+                }
+            }
         } catch (e) {
+            // ignore parse errors
+        }
+        return streams;
+    }
 
-            cb({
-                success: false,
-                errorCode: "HOME_ERROR",
-                message: String(e)
-            });
+    // ==================== CORE FUNCTIONS ====================
 
+    async function getHome(cb) {
+        try {
+            const res = await http_get(BASE_URL, HEADERS);
+            const html = res.body || "";
+
+            // Lấy section #video-list
+            const listMatch = html.match(/<div[^>]+id="video-list"[^>]*>([\s\S]*?)<\/div>\s*<\/section>/i)
+                || html.match(/<div[^>]+id="video-list"[^>]*>([\s\S]*)/i);
+            const listHtml = listMatch ? listMatch[0] : html;
+
+            const items = parseVideoItems(listHtml);
+
+            if (!items.length) {
+                return cb({ success: false, errorCode: "HOME_ERROR", message: "No videos found" });
+            }
+
+            cb({ success: true, data: { "Trending": items } });
+        } catch (e) {
+            cb({ success: false, errorCode: "HOME_ERROR", message: e.message });
         }
     }
 
     async function search(query, cb) {
-
         try {
+            const url = `${BASE_URL}/search/${encodeURIComponent(query)}/`;
+            const res = await http_get(url, HEADERS);
+            const html = res.body || "";
 
-            const url =
-                `${manifest.baseUrl}/search/${encodeURIComponent(query)}/`;
+            const items = [];
+            const seen = new Set();
 
-            const html = await request(url);
+            // Selector: #container .box .video-list -> lấy từng item
+            const containerMatch = html.match(/<div[^>]+id="container"[^>]*>([\s\S]*)/i);
+            const containerHtml = containerMatch ? containerMatch[0] : html;
 
-            const results = parseVideos(html);
+            // Parse từng .video-list block
+            const blockRegex = /<div[^>]+class="[^"]*\bvideo-list\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+            let block;
+            while ((block = blockRegex.exec(containerHtml)) !== null) {
+                const inner = block[0];
 
-            cb({
-                success: true,
-                data: results
-            });
+                const aMatch = inner.match(/<a[^>]+href="([^"]+)"/i);
+                const href = aMatch ? fixUrl(aMatch[1]) : null;
+                if (!href || seen.has(href)) continue;
+                seen.add(href);
 
+                const imgMatch = inner.match(/class="[^"]*\bvideo-image\b[^"]*"[^>]*src="([^"]+)"/i)
+                    || inner.match(/<img[^>]+src="([^"]+)"/i);
+                const poster = imgMatch ? fixUrl(imgMatch[1]) : null;
+
+                const nameMatch = inner.match(/<div[^>]+class="[^"]*\bvideo-name\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                const title = nameMatch ? stripTags(nameMatch[1]) : "Unknown";
+
+                items.push(new MultimediaItem({
+                    title,
+                    url: href,
+                    posterUrl: poster,
+                    type: "movie",
+                    isAdult: true,
+                    contentRating: "18+"
+                }));
+            }
+
+            cb({ success: true, data: items });
         } catch (e) {
-
-            cb({
-                success: false,
-                errorCode: "SEARCH_ERROR",
-                message: String(e)
-            });
-
+            cb({ success: false, errorCode: "SEARCH_ERROR", message: e.message });
         }
     }
 
     async function load(url, cb) {
-
         try {
+            const res = await http_get(url, HEADERS);
+            const html = res.body || "";
 
-            const html = await request(url);
+            // Title từ #container h2
+            const containerMatch = html.match(/<div[^>]+id="container"[^>]*>([\s\S]*)/i);
+            const containerHtml = containerMatch ? containerMatch[0] : html;
 
-            const title =
-                clean(
-                    html.match(/<title>(.*?)<\/title>/i)?.[1]
-                    ?.replace(/-?\s*VLXX.*$/i, "")
-                    || "Unknown"
-                );
+            const h2Match = containerHtml.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+            const title = h2Match ? stripTags(h2Match[1]) : "No Title";
 
-            const poster =
-                html.match(/property="og:image"\s*content="([^"]+)"/i)?.[1]
-                || "";
-
-            const description =
-                html.match(/property="og:description"\s*content="([^"]+)"/i)?.[1]
-                || "";
-
-            const tags = [
-                ...html.matchAll(/<a[^>]*href="[^"]*tag[^"]*"[^>]*>(.*?)<\/a>/gi)
-            ].map(v => clean(v[1]));
+            // Description từ div.video-description
+            const descMatch = containerHtml.match(/<div[^>]+class="[^"]*\bvideo-description\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+            const description = descMatch ? stripTags(descMatch[1]) : "";
 
             const item = new MultimediaItem({
                 title,
                 url,
-                posterUrl: absolute(poster),
-                description: clean(description),
-                type: "movie"
+                posterUrl: null,
+                type: "movie",
+                description,
+                isAdult: true,
+                contentRating: "18+"
             });
 
-            if (tags.length > 0) {
-                item.genres = tags;
-            }
-
-            cb({
-                success: true,
-                data: item
-            });
-
+            cb({ success: true, data: item });
         } catch (e) {
-
-            cb({
-                success: false,
-                errorCode: "LOAD_ERROR",
-                message: String(e)
-            });
-
+            cb({ success: false, errorCode: "LOAD_ERROR", message: e.message });
         }
-    }
-
-    async function extractSources(playerHtml) {
-
-        const streams = [];
-
-        const sourcesMatch =
-            playerHtml.match(/sources\s*:\s*(\[[\s\S]*?\])/i);
-
-        if (!sourcesMatch) {
-            return streams;
-        }
-
-        let parsed = [];
-
-        try {
-            parsed = JSON.parse(sourcesMatch[1]);
-        } catch (_) {}
-
-        for (const source of parsed) {
-
-            if (!source?.file) continue;
-
-            streams.push(
-                new StreamResult({
-                    url: source.file,
-                    quality: source.label || "Auto",
-                    headers: {
-                        Referer: manifest.baseUrl + "/"
-                    }
-                })
-            );
-        }
-
-        return streams;
     }
 
     async function loadStreams(url, cb) {
-
         try {
+            const id = extractIdFromUrl(url);
+            if (!id) return cb({ success: false, message: "Cannot extract video ID from URL" });
 
-            const html = await request(url);
+            const postHeaders = {
+                ...HEADERS,
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"
+            };
 
-            let videoId =
-                html.match(/video_id\s*=\s*["']?(\d+)/i)?.[1];
+            const body = `vlxx_server=1&id=${encodeURIComponent(id)}&server=1`;
+            const res = await http_post(`${BASE_URL}/ajax.php`, body, postHeaders);
+            const text = res.body || "";
 
-            if (!videoId) {
-                videoId =
-                    html.match(/id_video\s*=\s*["']?(\d+)/i)?.[1];
+            const sources = parseSourcesFromJs(text);
+
+            if (!sources.length) {
+                return cb({ success: false, message: "No stream sources found" });
             }
 
-            if (!videoId) {
+            const streams = sources.map(s => new StreamResult({
+                url: s.url,
+                quality: s.label || "Auto",
+                headers: { "Referer": BASE_URL + "/" }
+            }));
 
-                return cb({
-                    success: false,
-                    errorCode: "NO_VIDEO_ID",
-                    message: "Video id not found"
-                });
-            }
-
-            const allStreams = [];
-
-            for (const server of [1, 2, 3]) {
-
-                try {
-
-                    const body = new URLSearchParams();
-                    body.append("vlxx_server", String(server));
-                    body.append("id", videoId);
-                    body.append("server", String(server));
-
-                    const ajaxHtml = await request(
-                        `${manifest.baseUrl}/ajax.php`,
-                        {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                                "X-Requested-With": "XMLHttpRequest"
-                            },
-                            body: body.toString()
-                        }
-                    );
-
-                    const extracted =
-                        await extractSources(ajaxHtml);
-
-                    allStreams.push(...extracted);
-
-                } catch (_) {}
-            }
-
-            const unique = [];
-            const used = new Set();
-
-            for (const stream of allStreams) {
-
-                if (used.has(stream.url)) continue;
-
-                used.add(stream.url);
-
-                unique.push(stream);
-            }
-
-            cb({
-                success: true,
-                data: unique
-            });
-
+            cb({ success: true, data: streams });
         } catch (e) {
-
-            cb({
-                success: false,
-                errorCode: "STREAM_ERROR",
-                message: String(e)
-            });
-
+            cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
         }
     }
 
@@ -305,5 +265,4 @@
     globalThis.search = search;
     globalThis.load = load;
     globalThis.loadStreams = loadStreams;
-
 })();
