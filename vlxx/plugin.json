@@ -1,0 +1,21 @@
+{
+  "packageName": "com.faez.vlxx",
+  "name": "VLXX",
+  "version": 1,
+  "language": "vi",
+  "author": "FAEZ",
+  "description": "VLXX provider for SkyStream",
+  "baseUrl": "https://vlxx.moi",
+  "iconUrl": "https://vlxx.moi/favicon.ico",
+  "type": "movie",
+  "domains": [
+    {
+      "name": "vlxx.moi",
+      "url": "https://vlxx.moi"
+    },
+    {
+      "name": "vlxx.ms",
+      "url": "https://vlxx.ms"
+    }
+  ]
+}
