@@ -252,11 +252,27 @@
         }
     }
 
-    // Known bad/fallback domains — skip these
-    const SKIP_DOMAINS = ["localnews.click", "fallback.php"];
+    // Danh sách domain video host hợp lệ
+    const VIDEO_HOSTS = [
+        "dood", "doply", "mixdrop", "voe.sx", "streamtape",
+        "luluvid", "lulustream", "rpmplay", "rpmshare",
+        "upns.online", "upnshare", "player4me", "embedseek",
+        "seekplayer", "seekstreaming", "easyvidplayer", "easyvidplay",
+        "filemoon", "streamwish", "vidoza", "upstream",
+        "fembed", "mp4upload", "vidlox", "burstcloud"
+    ];
+
+    // Domain rác cần bỏ qua
+    const SKIP_HOSTS = ["localnews.click", "google.com", "xxxparodyhd.net", "nitroflare", "frdl.io", "freedl"];
+
+    function isVideoHost(url) {
+        const u = url.toLowerCase();
+        return VIDEO_HOSTS.some(function (h) { return u.includes(h); });
+    }
 
     function isBadUrl(url) {
-        return SKIP_DOMAINS.some(function (d) { return url.includes(d); });
+        const u = url.toLowerCase();
+        return SKIP_HOSTS.some(function (h) { return u.includes(h); });
     }
 
     async function loadStreams(url, cb) {
@@ -270,31 +286,24 @@
             }
             const html = res.body || "";
 
-            // Parse stream links from "Watch Online" section
-            // Structure: <a href="https://doply.net/e/..." title="...">DoodStream</a>
-            //            <a href="https://mixdrop.my/e/..." title="...">MixDrop</a>
-            //            <a href="https://voe.sx/e/..." title="...">VOE</a>
+            // Cắt lấy phần "Watch Online" đến "Download" để tránh lấy link không liên quan
+            const watchSection = html.match(/Watch Online([\s\S]*?)### Download/i)
+                || html.match(/Watch Online([\s\S]*?)Stream in HD/i)
+                || html.match(/Watch Online([\s\S]*?)Rating/i);
+
+            const searchArea = watchSection ? watchSection[1] : html;
+
+            // Lấy tất cả href trong khu vực đó
             const videoUrls = [];
-
-            // Method 1: links with favicon img (the real stream links)
-            // <a href="URL" title="..."><img src="...favicons...">SourceName</a>
-            const faviconLinkRegex = /<a\s+href="(https?:\/\/[^"]+)"[^>]*>\s*<img[^>]+favicons[^>]*>[^<]*<\/a>/gi;
+            const hrefRegex = /href="(https?:\/\/[^"]+)"/gi;
             let m;
-            while ((m = faviconLinkRegex.exec(html)) !== null) {
+            while ((m = hrefRegex.exec(searchArea)) !== null) {
                 const u = m[1].trim();
-                if (u && !isBadUrl(u)) videoUrls.push(u);
-            }
-
-            // Method 2: fallback — any https link inside "Watch Online" section
-            // before the rating block
-            if (!videoUrls.length) {
-                const watchSection = html.match(/Watch Online([\s\S]*?)Rating\s*\(/i);
-                if (watchSection) {
-                    const hrefRegex = /href="(https?:\/\/[^"]+)"/gi;
-                    while ((m = hrefRegex.exec(watchSection[1])) !== null) {
-                        const u = m[1].trim();
-                        if (u && !isBadUrl(u)) videoUrls.push(u);
-                    }
+                if (!u) continue;
+                if (isBadUrl(u)) continue;
+                // Ưu tiên link video host đã biết, còn không thì lấy hết https link có /e/ hoặc /#
+                if (isVideoHost(u) || /\/e\/[a-z0-9]+/i.test(u) || /#[a-z0-9]+$/i.test(u)) {
+                    videoUrls.push(u);
                 }
             }
 
@@ -308,22 +317,24 @@
                 videoUrls.map(async function (videoUrl) {
                     if (typeof globalThis.loadExtractor === "function") {
                         try {
+                            const before = streamResults.length;
                             await globalThis.loadExtractor(videoUrl, function (stream) {
                                 streamResults.push(stream);
                             });
-                            return;
+                            // Nếu extractor xử lý được thì thôi
+                            if (streamResults.length > before) return;
                         } catch (_) {}
                     }
-                    // Fallback nếu extractor không nhận được host này
+                    // Fallback: push thẳng URL
                     streamResults.push(new StreamResult({
                         url: videoUrl,
-                        source: "XXXParodyHD",
+                        source: "XXXParodyHD - " + (videoUrl.match(/(?:https?:\/\/)?(?:www\.)?([^./]+)/)?.[1] || "stream"),
                         headers: { "Referer": BASE_URL }
                     }));
                 })
             );
 
-            // Deduplicate
+            // Deduplicate theo url
             const deduped = [];
             const seen = new Set();
             streamResults.forEach(function (item) {
@@ -332,6 +343,10 @@
                 seen.add(item.url);
                 deduped.push(item);
             });
+
+            if (!deduped.length) {
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "Extractors could not resolve any streams" });
+            }
 
             cb({ success: true, data: deduped });
         } catch (e) {
