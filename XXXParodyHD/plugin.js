@@ -1,244 +1,161 @@
-(function() {
+(function () {
     /**
      * @type {import('@skystream/sdk').Manifest}
+     * XXXParodyHD Plugin for SkyStream
+     * Converted from CloudStream (Kotlin) by Claude
+     * Original author: @Kraptor123 for @Cs-GizliKeyif
      */
-    // manifest is injected at runtime
 
-    // ========== JsoupLite (HTML Parser) ==========
-    class JNode {
-        constructor(tag = null, attrs = {}, parent = null) {
-            this.tag = tag;
-            this.attrs = attrs;
-            this.parent = parent;
-            this.children = [];
-            this.text = "";
-        }
-        attr(name) { return this.attrs[name] || ""; }
-        textContent() {
-            if (!this.tag) return this.text;
-            let t = "";
-            for (const c of this.children) t += c.textContent();
-            return t;
-        }
-        html() { return this.children.map(c => c.outerHTML()).join(""); }
-        outerHTML() {
-            if (!this.tag) return this.text;
-            const attrs = Object.entries(this.attrs).map(([k, v]) => ` ${k}="${v}"`).join("");
-            return `<${this.tag}${attrs}>${this.html()}</${this.tag}>`;
-        }
-        matches(selector) {
-            if (!this.tag) return false;
-            if (selector.includes(".")) {
-                const parts = selector.split(".");
-                const t = parts[0];
-                const c = parts[1];
-                const tagMatch = !t || this.tag === t.toLowerCase();
-                const classMatch = (this.attrs.class || "").split(/\s+/).includes(c);
-                return tagMatch && classMatch;
-            }
-            if (selector.startsWith("#")) return this.attrs.id === selector.slice(1);
-            return this.tag === selector.toLowerCase();
-        }
-        selectFirst(selector) {
-            for (const c of this.children) {
-                if (c.matches(selector)) return c;
-                const r = c.selectFirst(selector);
-                if (r) return r;
-            }
-            return null;
-        }
-        find(selector) { return this.selectFirst(selector); }
-        select(selector, out = []) {
-            for (const c of this.children) {
-                if (c.matches(selector)) out.push(c);
-                c.select(selector, out);
-            }
-            return out;
-        }
-    }
+    const BASE_URL = manifest?.baseUrl || "https://xxxparodyhd.net";
 
-    class JsoupLite {
-        constructor(html) {
-            this.root = new JNode("root");
-            let current = this.root;
-            const re = /<\/?[a-z0-9]+(?:\s+[a-z0-9-]+(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>|[^<]+/gi;
-            let m;
-            while ((m = re.exec(html))) {
-                const token = m[0];
-                if (token.startsWith("</")) {
-                    if (current.parent) current = current.parent;
-                    continue;
-                }
-                if (token.startsWith("<")) {
-                    const tagNameMatch = token.match(/^<([a-z0-9]+)/i);
-                    const tag = tagNameMatch ? tagNameMatch[1].toLowerCase() : "unknown";
-                    const selfClosing = token.endsWith("/>") || /^(?:img|br|hr|input|meta|link)$/i.test(tag);
-                    
-                    const attrs = {};
-                    const attrRe = /([a-z0-9-]+)=(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
-                    let am;
-                    while ((am = attrRe.exec(token))) {
-                        attrs[am[1].toLowerCase()] = am[2] || am[3] || am[4];
-                    }
-                    
-                    const node = new JNode(tag, attrs, current);
-                    current.children.push(node);
-                    if (!selfClosing) {
-                        current = node;
-                        if (tag === "script" || tag === "style") {
-                            const endTag = `</${tag}>`;
-                            const endIndex = html.indexOf(endTag, re.lastIndex);
-                            if (endIndex !== -1) {
-                                const content = html.substring(re.lastIndex, endIndex);
-                                const t = new JNode(null, {}, current);
-                                t.text = content;
-                                current.children.push(t);
-                                re.lastIndex = endIndex + endTag.length;
-                                current = current.parent;
-                            }
-                        }
-                    }
-                    continue;
-                }
-                const text = token.trim();
-                if (text) {
-                    const t = new JNode(null, {}, current);
-                    t.text = text;
-                    current.children.push(t);
-                }
-            }
-        }
-        find(selector) { return this.root.find(selector); }
-        select(selector) { return this.root.select(selector); }
-    }
+    const CATEGORIES = [
+        { name: "Movies",          url: `${BASE_URL}/movies/` },
+        { name: "18+ Teens",       url: `${BASE_URL}/genre/free-18-teens/` },
+        { name: "All Girl",        url: `${BASE_URL}/genre/free-all-girl/` },
+        { name: "All Sex",         url: `${BASE_URL}/genre/free-all-sex/` },
+        { name: "Amateurs",        url: `${BASE_URL}/genre/free-amateurs/` },
+        { name: "Anal",            url: `${BASE_URL}/genre/free-anal/` },
+        { name: "Anal Creampie",   url: `${BASE_URL}/genre/free-anal-creampie/` },
+        { name: "Animation",       url: `${BASE_URL}/genre/free-animation/` },
+        { name: "Asian",           url: `${BASE_URL}/genre/free-asian/` },
+        { name: "Ass to Mouth",    url: `${BASE_URL}/genre/free-ass-to-mouth/` },
+        { name: "Babysitter",      url: `${BASE_URL}/genre/free-babysitter/` },
+        { name: "BDSM",            url: `${BASE_URL}/genre/free-bdsm/` },
+        { name: "Beach",           url: `${BASE_URL}/genre/free-beach/` },
+        { name: "Big Boobs",       url: `${BASE_URL}/genre/free-big-boobs/` },
+        { name: "Big Butt",        url: `${BASE_URL}/genre/free-big-butt/` },
+        { name: "Big Cocks",       url: `${BASE_URL}/genre/free-big-cocks/` },
+        { name: "Blondes",         url: `${BASE_URL}/genre/free-blondes/` },
+        { name: "Blowjobs",        url: `${BASE_URL}/genre/free-blowjobs/` },
+        { name: "Brazilian",       url: `${BASE_URL}/genre/free-brazilian/` },
+        { name: "Cheerleaders",    url: `${BASE_URL}/genre/free-cheerleaders/` },
+        { name: "College",         url: `${BASE_URL}/genre/free-college/` },
+        { name: "Cougars",         url: `${BASE_URL}/genre/free-cougars/` },
+        { name: "Couples",         url: `${BASE_URL}/genre/free-couples/` },
+        { name: "Creampie",        url: `${BASE_URL}/genre/free-creampie/` },
+        { name: "Cumshots",        url: `${BASE_URL}/genre/free-cumshots/` },
+        { name: "Czech",           url: `${BASE_URL}/genre/free-czech/` },
+        { name: "Deep Throat",     url: `${BASE_URL}/genre/free-deep-throat/` },
+        { name: "Erotica",         url: `${BASE_URL}/genre/free-erotica/` },
+        { name: "European",        url: `${BASE_URL}/genre/free-european/` },
+        { name: "Facesitting",     url: `${BASE_URL}/genre/free-facesitting/` },
+        { name: "Facials",         url: `${BASE_URL}/genre/free-facials/` },
+        { name: "Family Roleplay", url: `${BASE_URL}/genre/free-family-roleplay/` },
+        { name: "Fantasy",         url: `${BASE_URL}/genre/free-fantasy/` },
+        { name: "Feature",         url: `${BASE_URL}/genre/free-feature/` },
+        { name: "Fetish",          url: `${BASE_URL}/genre/free-fetish/` },
+        { name: "Fingering",       url: `${BASE_URL}/genre/free-fingering/` },
+        { name: "Gangbang",        url: `${BASE_URL}/genre/free-gangbang/` },
+        { name: "German",          url: `${BASE_URL}/genre/free-german/` },
+        { name: "Hairy",           url: `${BASE_URL}/genre/free-hairy/` },
+        { name: "Handjobs",        url: `${BASE_URL}/genre/free-handjobs/` },
+        { name: "Hardcore",        url: `${BASE_URL}/genre/free-hardcore/` },
+        { name: "Hentai",          url: `${BASE_URL}/genre/free-hentai/` },
+        { name: "Italian",         url: `${BASE_URL}/genre/free-italian/` },
+        { name: "Japanese",        url: `${BASE_URL}/genre/free-japanese/` },
+        { name: "Latin",           url: `${BASE_URL}/genre/free-latin/` },
+        { name: "Lesbian",         url: `${BASE_URL}/genre/free-lesbian/` },
+        { name: "Lingerie",        url: `${BASE_URL}/genre/free-lingerie/` },
+        { name: "Massage",         url: `${BASE_URL}/genre/free-massage/` },
+        { name: "Masturbation",    url: `${BASE_URL}/genre/free-masturbation/` },
+        { name: "Mature",          url: `${BASE_URL}/genre/free-mature/` },
+        { name: "MILF",            url: `${BASE_URL}/genre/free-milf/` },
+        { name: "Mystery",         url: `${BASE_URL}/genre/free-mystery/` },
+        { name: "Oiled",           url: `${BASE_URL}/genre/free-oiled/` },
+        { name: "Outdoors",        url: `${BASE_URL}/genre/free-outdoors/` },
+        { name: "Parody",          url: `${BASE_URL}/genre/free-parody/` },
+        { name: "POV",             url: `${BASE_URL}/genre/free-pov/` },
+        { name: "Public Sex",      url: `${BASE_URL}/genre/free-public-sex/` },
+        { name: "Small Tits",      url: `${BASE_URL}/genre/free-small-tits/` },
+        { name: "Squirting",       url: `${BASE_URL}/genre/free-squirting/` },
+        { name: "Stockings",       url: `${BASE_URL}/genre/free-stockings/` },
+        { name: "Tattoos",         url: `${BASE_URL}/genre/free-tattoos/` },
+        { name: "Threesomes",      url: `${BASE_URL}/genre/free-threesomes/` },
+        { name: "Virgin",          url: `${BASE_URL}/genre/free-virgin/` },
+    ];
 
-    // ========== HELPERS ==========
-    const CommonHeaders = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36" };
+    // --- Helpers ---
 
     function fixUrl(url) {
-        if (!url) return "";
+        if (!url) return null;
         if (url.startsWith("//")) return "https:" + url;
-        if (url.startsWith("/")) return manifest.baseUrl + url;
-        return url;
+        if (url.startsWith("http")) return url;
+        return BASE_URL + (url.startsWith("/") ? url : "/" + url);
     }
 
     function parseItems(html) {
-        const doc = new JsoupLite(html);
         const items = [];
-        doc.select("div.movies-list div.ml-item").forEach(card => {
-            const titleEl = card.find("h2");
-            if (!titleEl) return;
-            const title = titleEl.textContent().trim();
-            const a = card.find("a");
-            const href = a ? fixUrl(a.attr("href")) : "";
-            if (!href) return;
-            const img = card.find("img");
-            const poster = img ? fixUrl(img.attr("src")) : "";
+        // Match each ml-item block
+        const itemRegex = /<div[^>]+class="[^"]*ml-item[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/g;
+        let match;
+        while ((match = itemRegex.exec(html)) !== null) {
+            const block = match[0];
+
+            const titleMatch = block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+            const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, "").trim() : null;
+            if (!title) continue;
+
+            const hrefMatch = block.match(/<a[^>]+href="([^"]+)"/i);
+            const href = hrefMatch ? fixUrl(hrefMatch[1]) : null;
+            if (!href) continue;
+
+            const imgMatch = block.match(/<img[^>]+src="([^"]+)"/i);
+            const posterUrl = imgMatch ? fixUrl(imgMatch[1]) : null;
+
             items.push(new MultimediaItem({
                 title: title,
                 url: href,
-                posterUrl: poster,
+                posterUrl: posterUrl,
                 type: "movie",
-                isAdult: true
+                isAdult: true,
+                contentRating: "18+"
             }));
-        });
+        }
         return items;
     }
 
-    // ========== CATEGORIES ==========
-    const categories = [
-        { name: "Movies", url: "/movies/" },
-        { name: "18+ Teens", url: "/genre/free-18-teens/" },
-        { name: "All Girl", url: "/genre/free-all-girl/" },
-        { name: "All Sex", url: "/genre/free-all-sex/" },
-        { name: "Amateurs", url: "/genre/free-amateurs/" },
-        { name: "Anal", url: "/genre/free-anal/" },
-        { name: "Anal Creampie", url: "/genre/free-anal-creampie/" },
-        { name: "Animation", url: "/genre/free-animation/" },
-        { name: "Asian", url: "/genre/free-asian/" },
-        { name: "Ass to Mouth", url: "/genre/free-ass-to-mouth/" },
-        { name: "Babysitter", url: "/genre/free-babysitter/" },
-        { name: "BDSM", url: "/genre/free-bdsm/" },
-        { name: "Beach", url: "/genre/free-beach/" },
-        { name: "Big Boobs", url: "/genre/free-big-boobs/" },
-        { name: "Big Butt", url: "/genre/free-big-butt/" },
-        { name: "Big Cocks", url: "/genre/free-big-cocks/" },
-        { name: "Blondes", url: "/genre/free-blondes/" },
-        { name: "Blowjobs", url: "/genre/free-blowjobs/" },
-        { name: "Brazilian", url: "/genre/free-brazilian/" },
-        { name: "Cheerleaders", url: "/genre/free-cheerleaders/" },
-        { name: "College", url: "/genre/free-college/" },
-        { name: "Cougars", url: "/genre/free-cougars/" },
-        { name: "Couples", url: "/genre/free-couples/" },
-        { name: "Creampie", url: "/genre/free-creampie/" },
-        { name: "Cumshots", url: "/genre/free-cumshots/" },
-        { name: "Czech", url: "/genre/free-czech/" },
-        { name: "Deep Throat", url: "/genre/free-deep-throat/" },
-        { name: "Erotica", url: "/genre/free-erotica/" },
-        { name: "European", url: "/genre/free-european/" },
-        { name: "Facesitting", url: "/genre/free-facesitting/" },
-        { name: "Facials", url: "/genre/free-facials/" },
-        { name: "Family Roleplay", url: "/genre/free-family-roleplay/" },
-        { name: "Fantasy", url: "/genre/free-fantasy/" },
-        { name: "Feature", url: "/genre/free-feature/" },
-        { name: "Fetish", url: "/genre/free-fetish/" },
-        { name: "Fingering", url: "/genre/free-fingering/" },
-        { name: "Gangbang", url: "/genre/free-gangbang/" },
-        { name: "German", url: "/genre/free-german/" },
-        { name: "Hairy", url: "/genre/free-hairy/" },
-        { name: "Handjobs", url: "/genre/free-handjobs/" },
-        { name: "Hardcore", url: "/genre/free-hardcore/" },
-        { name: "Hentai", url: "/genre/free-hentai/" },
-        { name: "Italian", url: "/genre/free-italian/" },
-        { name: "Japanese", url: "/genre/free-japanese/" },
-        { name: "Latin", url: "/genre/free-latin/" },
-        { name: "Lesbian", url: "/genre/free-lesbian/" },
-        { name: "Lingerie", url: "/genre/free-lingerie/" },
-        { name: "Massage", url: "/genre/free-massage/" },
-        { name: "Masturbation", url: "/genre/free-masturbation/" },
-        { name: "Mature", url: "/genre/free-mature/" },
-        { name: "MILF", url: "/genre/free-milf/" },
-        { name: "Mystery", url: "/genre/free-mystery/" },
-        { name: "Oiled", url: "/genre/free-oiled/" },
-        { name: "Outdoors", url: "/genre/free-outdoors/" },
-        { name: "Parody", url: "/genre/free-parody/" },
-        { name: "POV", url: "/genre/free-pov/" },
-        { name: "Public Sex", url: "/genre/free-public-sex/" },
-        { name: "Small Tits", url: "/genre/free-small-tits/" },
-        { name: "Squirting", url: "/genre/free-squirting/" },
-        { name: "Stockings", url: "/genre/free-stockings/" },
-        { name: "Tattoos", url: "/genre/free-tattoos/" },
-        { name: "Threesomes", url: "/genre/free-threesomes/" },
-        { name: "Virgin", url: "/genre/free-virgin/" }
-    ];
+    // --- Core Functions ---
 
-    // ========== CORE FUNCTIONS ==========
+    // Fetch one category page, supports pagination via page param
+    async function fetchCategoryPage(baseUrl, page) {
+        const url = page && page > 1 ? `${baseUrl}page/${page}/` : baseUrl;
+        const res = await http_get(url, { "Referer": BASE_URL });
+        if (!res || res.status !== 200) return [];
+        return parseItems(res.body || "");
+    }
 
     async function getHome(cb) {
         try {
-            const results = {};
-            // Fetch first page of each category (limit 20 items per category to keep it fast)
-            const fetchPromises = categories.map(async (cat) => {
-                const url = `${manifest.baseUrl}${cat.url}`;
-                try {
-                    const res = await http_get(url, CommonHeaders);
-                    if (res && res.body) {
-                        const items = parseItems(res.body).slice(0, 20);
-                        if (items.length > 0) {
-                            results[cat.name] = items;
-                        }
-                    }
-                } catch (e) {
-                    console.error(`Error fetching ${cat.name}:`, e);
-                }
+            const homeData = {};
+
+            // Fetch first 4 categories in parallel
+            const firstBatch = CATEGORIES.slice(0, 4);
+            const results = await Promise.allSettled(
+                firstBatch.map(async function (cat) {
+                    const items = await fetchCategoryPage(cat.url, 1);
+                    return { name: cat.name, items };
+                })
+            );
+
+            results.forEach(function (result) {
+                if (result.status !== "fulfilled") return;
+                if (!result.value.items.length) return;
+                homeData[result.value.name] = result.value.items;
             });
 
-            await Promise.all(fetchPromises);
-
-            if (Object.keys(results).length === 0) {
-                return cb({ success: false, errorCode: "HOME_ERROR", message: "No categories loaded" });
+            // Fetch remaining categories sequentially
+            for (let i = 4; i < CATEGORIES.length; i++) {
+                try {
+                    const items = await fetchCategoryPage(CATEGORIES[i].url, 1);
+                    if (items.length) homeData[CATEGORIES[i].name] = items;
+                } catch (_) {}
             }
-            cb({ success: true, data: results });
+
+            if (!Object.keys(homeData).length) {
+                return cb({ success: false, errorCode: "HOME_ERROR", message: "No home sections available" });
+            }
+
+            cb({ success: true, data: homeData });
         } catch (e) {
             cb({ success: false, errorCode: "HOME_ERROR", message: e.message });
         }
@@ -246,10 +163,12 @@
 
     async function search(query, cb) {
         try {
-            const url = `${manifest.baseUrl}/search/${encodeURIComponent(query)}/`;
-            const res = await http_get(url, CommonHeaders);
-            if (!res || !res.body) return cb({ success: false, errorCode: "SEARCH_ERROR", message: "No response" });
-            const items = parseItems(res.body);
+            const url = `${BASE_URL}/search/${encodeURIComponent(query)}`;
+            const res = await http_get(url, { "Referer": BASE_URL });
+            if (!res || res.status !== 200) {
+                return cb({ success: false, errorCode: "SEARCH_ERROR", message: "Request failed" });
+            }
+            const items = parseItems(res.body || "");
             cb({ success: true, data: items });
         } catch (e) {
             cb({ success: false, errorCode: "SEARCH_ERROR", message: e.message });
@@ -258,148 +177,488 @@
 
     async function load(url, cb) {
         try {
-            const res = await http_get(url, CommonHeaders);
-            if (!res || !res.body) return cb({ success: false, errorCode: "LOAD_ERROR", message: "Failed to load details" });
-            const doc = new JsoupLite(res.body);
+            const res = await http_get(url, { "Referer": BASE_URL });
+            if (!res || res.status !== 200) {
+                return cb({ success: false, message: "Failed to load page" });
+            }
+            const html = res.body || "";
 
             // Title
-            const titleEl = doc.find("div.mvic-desc h3");
-            if (!titleEl) return cb({ success: false, message: "Title not found" });
-            const title = titleEl.textContent().trim();
+            const titleMatch = html.match(/<div[^>]+class="[^"]*mvic-desc[^"]*"[^>]*>[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>/i);
+            const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, "").trim() : null;
+            if (!title) return cb({ success: false, message: "Title not found" });
 
             // Poster
-            const imgEl = doc.find("div.thumb img");
-            const poster = imgEl ? fixUrl(imgEl.attr("src")) : null;
+            const posterMatch = html.match(/<div[^>]+class="[^"]*thumb[^"]*"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"/i);
+            const posterUrl = posterMatch ? fixUrl(posterMatch[1]) : null;
 
             // Description
-            const descEl = doc.find("div.mvic-desc div.desc p");
-            const description = descEl ? descEl.textContent().trim() : "";
+            const descMatch = html.match(/<div[^>]+class="[^"]*mvic-desc[^"]*"[^>]*>[\s\S]*?<div[^>]+class="[^"]*desc[^"]*"[^>]*>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i);
+            const description = descMatch ? descMatch[1].replace(/<[^>]*>/g, "").trim() : null;
 
-            // Year
-            const yearEl = doc.select("div.mvic-desc div.mvici-left p").find(el => {
-                const strong = el.find("strong");
-                return strong && /Released Date:/i.test(strong.textContent());
-            });
-            let year = null;
-            if (yearEl) {
-                const strong = yearEl.find("strong");
-                let text = yearEl.textContent();
-                if (strong) text = text.replace(strong.textContent(), "").trim();
-                // extract year after comma
-                const match = text.match(/,?\s*(\d{4})/);
-                if (match) year = parseInt(match[1], 10);
+            // Year — looks for "Released Date:" row
+            const yearMatch = html.match(/Released Date:[^<]*,\s*(\d{4})/i);
+            const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
+
+            // Duration in minutes
+            const durationMatch = html.match(/(\d+)\s*mins/i);
+            const duration = durationMatch ? parseInt(durationMatch[1]) : undefined;
+
+            // Genres/Tags
+            const tags = [];
+            const genreBlockMatch = html.match(/Genres:[\s\S]*?(<span[\s\S]*?<\/p>)/i);
+            if (genreBlockMatch) {
+                const tagRegex = /<a[^>]*>([\s\S]*?)<\/a>/g;
+                let tagMatch;
+                while ((tagMatch = tagRegex.exec(genreBlockMatch[1])) !== null) {
+                    const t = tagMatch[1].replace(/<[^>]*>/g, "").trim();
+                    if (t) tags.push(t);
+                }
             }
 
-            // Tags (Genres)
-            const tagsEl = doc.select("div.mvici-left p").find(el => {
-                const strong = el.find("strong");
-                return strong && /Genres:/i.test(strong.textContent());
-            });
-            const tags = tagsEl ? tagsEl.select("span a").map(a => a.textContent().trim()).filter(Boolean) : [];
-
-            // Duration
-            const durEl = doc.select("p").find(el => {
-                const strong = el.find("strong");
-                return strong && /Duration/i.test(strong.textContent());
-            });
-            let duration = null;
-            if (durEl) {
-                const match = durEl.textContent().match(/(\d+)\s*mins/);
-                if (match) duration = parseInt(match[1], 10);
+            // Cast (Pornstars)
+            const cast = [];
+            const pornstarBlockMatch = html.match(/Pornstars:[\s\S]*?(<span[\s\S]*?<\/p>)/i);
+            if (pornstarBlockMatch) {
+                const actorRegex = /<a[^>]*>([\s\S]*?)<\/a>/g;
+                let actorMatch;
+                while ((actorMatch = actorRegex.exec(pornstarBlockMatch[1])) !== null) {
+                    const name = actorMatch[1].replace(/<[^>]*>/g, "").trim();
+                    if (name) cast.push(new Actor({ name }));
+                }
             }
-
-            // Actors (Pornstars)
-            const actorsEl = doc.select("div.mvici-left p").find(el => {
-                const strong = el.find("strong");
-                return strong && /Pornstars:/i.test(strong.textContent());
-            });
-            const actors = actorsEl
-                ? actorsEl.select("span a").map(a => new Actor({ name: a.textContent().trim() }))
-                : [];
 
             // Recommendations
-            const recItems = doc.select("div.movies-list div.ml-item").map(item => {
-                const h2 = item.find("h2");
-                if (!h2) return null;
-                const recTitle = h2.textContent().trim();
-                const a = item.find("a");
-                const recHref = a ? fixUrl(a.attr("href")) : null;
-                const recImg = item.find("img");
-                const recPoster = recImg ? fixUrl(recImg.attr("src")) : null;
-                if (!recHref) return null;
-                return new MultimediaItem({
-                    title: recTitle,
-                    url: recHref,
-                    posterUrl: recPoster,
-                    type: "movie",
-                    isAdult: true
-                });
-            }).filter(Boolean);
+            const recommendations = parseItems(html);
 
-            const mediaItem = new MultimediaItem({
-                title: title,
+            // SkyStream cần ít nhất 1 Episode để nút Watch không bị xám
+            // URL của episode = URL trang phim → loadStreams sẽ fetch và parse link
+            const episode = new Episode({
+                name: title,
                 url: url,
-                posterUrl: poster,
-                description: description,
-                year: year || undefined,
-                tags: tags.length > 0 ? tags : undefined,
-                duration: duration || undefined,
-                cast: actors.length > 0 ? actors : undefined,
-                recommendations: recItems.length > 0 ? recItems : undefined,
-                type: "movie",
-                isAdult: true
+                season: 1,
+                episode: 1,
+                dubStatus: "none"
             });
 
-            cb({ success: true, data: mediaItem });
+            const result = new MultimediaItem({
+                title,
+                url,
+                posterUrl,
+                type: "movie",
+                description,
+                year,
+                duration,
+                tags: tags.length ? tags : undefined,
+                cast: cast.length ? cast : undefined,
+                recommendations: recommendations.length ? recommendations : undefined,
+                episodes: [episode],
+                isAdult: true,
+                contentRating: "18+"
+            });
+
+            cb({ success: true, data: result });
         } catch (e) {
             cb({ success: false, errorCode: "LOAD_ERROR", message: e.message });
         }
     }
 
-    async function loadStreams(dataUrl, cb) {
+    // Danh sách domain video host hợp lệ
+    const VIDEO_HOSTS = [
+        "dood", "doply", "mixdrop", "voe.sx", "streamtape",
+        "luluvid", "lulustream", "rpmplay", "rpmshare",
+        "upns.online", "upnshare", "player4me", "embedseek",
+        "seekplayer", "seekstreaming", "easyvidplayer", "easyvidplay",
+        "filemoon", "streamwish", "vidoza", "upstream",
+        "fembed", "mp4upload", "vidlox", "burstcloud"
+    ];
+
+    // Domain rác cần bỏ qua
+    const SKIP_HOSTS = ["localnews.click", "google.com", "xxxparodyhd.net", "nitroflare", "frdl.io", "freedl"];
+
+    function isVideoHost(url) {
+        const u = url.toLowerCase();
+        return VIDEO_HOSTS.some(function (h) { return u.includes(h); });
+    }
+
+    function isBadUrl(url) {
+        const u = url.toLowerCase();
+        return SKIP_HOSTS.some(function (h) { return u.includes(h); });
+    }
+
+    // Map mirror domain → real host để loadExtractor nhận ra
+    const MIRROR_MAP = {
+        "doply.net":          "doodstream.com",
+        "luluvid.com":        "lulustream.com",
+        "mixdrop.my":         "mixdrop.co",
+        "mixdrop.ag":         "mixdrop.co",
+        "my.rpmplay.online":  "rpmshare.com",
+        "my.upns.online":     "upnshare.com",
+        "vip.player4me.vip":  "player4me.com",
+        "my.player4me.online":"player4me.com",
+        "my.embedseek.online":"seekstreaming.com",
+        "vip.seekplayer.vip": "seekstreaming.com",
+        "p.easyvidplayer.com":"easyvidplay.com",
+        "vip.easyvidplayer.com":"easyvidplay.com",
+    };
+
+    // Cố gắng đổi mirror URL → URL gốc cùng path
+    function normalizeMirrorUrl(url) {
         try {
-            const res = await http_get(dataUrl, CommonHeaders);
-            if (!res || !res.body) return cb({ success: false, errorCode: "STREAM_ERROR", message: "Page not loaded" });
-            const doc = new JsoupLite(res.body);
+            const parsed = new URL(url);
+            const realHost = MIRROR_MAP[parsed.hostname];
+            if (realHost) {
+                return `https://${realHost}${parsed.pathname}${parsed.hash}${parsed.search}`;
+            }
+        } catch (_) {}
+        return url;
+    }
 
-            // Find iframe links with id="#iframe"
-            const iframeAnchors = doc.select("div.Rtable1 a").filter(a => a.attr("id") === "#iframe");
-            if (iframeAnchors.length === 0) return cb({ success: true, data: [] });
+    // ============================================================
+    // MANUAL EXTRACTORS — dựa theo Kotlin extractor thực tế
+    // ============================================================
 
-            const streamPromises = iframeAnchors.map(async (a) => {
-                const videoUrl = fixUrl(a.attr("href"));
-                if (!videoUrl) return [];
+    const DOOD_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
 
-                // Try using built-in extractor if available
-                try {
-                    if (typeof globalThis.loadExtractor === "function") {
-                        return new Promise(resolve => {
-                            globalThis.loadExtractor(videoUrl, (streams) => {
-                                resolve(Array.isArray(streams) ? streams : []);
-                            });
-                        });
-                    }
-                } catch (e) {
-                    console.error("Built-in extractor failed:", e);
+    // DoodStream / DoodDoply → thật ra dùng myvidplay.com
+    async function extractDoodStream(url) {
+        try {
+            const embedUrl = url
+                .replace("doply.net", "myvidplay.com")
+                .replace("doodstream.com", "myvidplay.com")
+                .replace("dood.wf", "myvidplay.com")
+                .replace("dood.la", "myvidplay.com")
+                .replace("d000d.com", "myvidplay.com")
+                .replace("ds2play.com", "myvidplay.com");
+
+            const res = await http_get(embedUrl, {
+                "Referer": "https://myvidplay.com",
+                "User-Agent": DOOD_UA
+            });
+            if (!res || !res.body) return [];
+            const html = res.body;
+
+            // Regex: /pass_md5/(expiry)/(token)
+            const md5Match = html.match(/\/pass_md5\/([^/]*)\/([^/'"\s]*)/);
+            if (!md5Match) return [];
+
+            const md5Path = md5Match[0];
+            const expiry = md5Match[1];
+            const token = md5Match[2];
+            const md5Url = "https://myvidplay.com" + md5Path;
+
+            const md5Res = await http_get(md5Url, {
+                "Referer": embedUrl,
+                "User-Agent": DOOD_UA
+            });
+            if (!md5Res || !md5Res.body) return [];
+
+            const baseLink = md5Res.body.trim();
+            const directLink = (token && expiry)
+                ? `${baseLink}?token=${token}&expiry=${expiry}000`
+                : baseLink;
+
+            return [new StreamResult({
+                url: directLink,
+                source: "DoodStream",
+                quality: 1080,
+                headers: {
+                    "Referer": "https://myvidplay.com",
+                    "User-Agent": DOOD_UA
                 }
+            })];
+        } catch (_) { return []; }
+    }
 
-                // Fallback: return as raw stream (HLS/MP4 maybe directly)
-                return [new StreamResult({
-                    url: videoUrl,
-                    source: "XXXParodyHD",
-                    headers: CommonHeaders
-                })];
+    // Streamwish / swhoi / Javsw / Streamhihi — parse file: "..." trong script
+    async function extractStreamwish(url, sourceName) {
+        try {
+            const res = await http_get(url, { "User-Agent": DOOD_UA });
+            if (!res || !res.body) return [];
+            const html = res.body;
+
+            const fileMatch = html.match(/file\s*:\s*["']([^"']+)["']/);
+            if (!fileMatch) return [];
+
+            return [new StreamResult({
+                url: fileMatch[1],
+                source: sourceName || "Streamwish",
+                quality: 1080,
+                headers: {
+                    "Referer": url,
+                    "User-Agent": DOOD_UA
+                }
+            })];
+        } catch (_) { return []; }
+    }
+
+    // Vidhidepro / Javlion / VidhideVIP — sources:[{file:"..."}]
+    async function extractVidhide(url, sourceName) {
+        try {
+            const res = await http_get(url, { "User-Agent": DOOD_UA });
+            if (!res || !res.body) return [];
+            const html = res.body;
+
+            const match = html.match(/sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/);
+            if (!match) return [];
+
+            return [new StreamResult({
+                url: match[1],
+                source: sourceName || "Vidhide",
+                quality: 1080,
+                headers: { "Referer": url }
+            })];
+        } catch (_) { return []; }
+    }
+
+    // Javggvideo — var urlPlay = '...'
+    async function extractJavggvideo(url) {
+        try {
+            const res = await http_get(url, { "User-Agent": DOOD_UA });
+            if (!res || !res.body) return [];
+            const match = res.body.match(/var urlPlay\s*=\s*['"]([^'"]+)['"]/);
+            if (!match) return [];
+            return [new StreamResult({
+                url: match[1],
+                source: "Javgg Video",
+                quality: 1080,
+                headers: { "Referer": url }
+            })];
+        } catch (_) { return []; }
+    }
+
+    // Maxstream — P.A.C.K.E.R obfuscated, unpack rồi parse file:"..."
+    async function extractMaxstream(url) {
+        try {
+            const res = await http_get(url, { "User-Agent": DOOD_UA });
+            if (!res || !res.body) return [];
+            const html = res.body;
+
+            // Thử unpack P.A.C.K.E.R nếu có
+            let script = html;
+            if (typeof getAndUnpack === "function" && /function\(p,a,c,k,e,d\)/.test(html)) {
+                try { script = getAndUnpack(html) || html; } catch (_) {}
+            }
+
+            const match = script.match(/file\s*:\s*["']([^"']+)["']/);
+            if (!match) return [];
+
+            return [new StreamResult({
+                url: match[1],
+                source: "Maxstream",
+                quality: 1080,
+                headers: { "Referer": url }
+            })];
+        } catch (_) { return []; }
+    }
+
+    // MixDrop / MixDropis — MDCore.wurl
+    async function extractMixDrop(url) {
+        try {
+            const embedUrl = url.replace("/f/", "/e/");
+            const res = await http_get(embedUrl, {
+                "Referer": "https://mixdrop.co/",
+                "User-Agent": DOOD_UA
+            });
+            if (!res || !res.body) return [];
+            const html = res.body;
+
+            const wurlMatch = html.match(/MDCore\.wurl\s*=\s*"([^"]+)"/)
+                || html.match(/wurl\s*=\s*"([^"]+)"/);
+            if (!wurlMatch) return [];
+
+            let streamUrl = wurlMatch[1];
+            if (streamUrl.startsWith("//")) streamUrl = "https:" + streamUrl;
+
+            return [new StreamResult({
+                url: streamUrl,
+                source: "MixDrop",
+                quality: 1080,
+                headers: { "Referer": "https://mixdrop.co/" }
+            })];
+        } catch (_) { return []; }
+    }
+
+    // VOE — 'hls': '...' hoặc 'mp4': '...'
+    async function extractVoe(url) {
+        try {
+            const res = await http_get(url, {
+                "Referer": "https://voe.sx/",
+                "User-Agent": DOOD_UA
+            });
+            if (!res || !res.body) return [];
+            const html = res.body;
+
+            const hlsMatch = html.match(/'hls'\s*:\s*'([^']+)'/) || html.match(/"hls"\s*:\s*"([^"]+)"/);
+            const mp4Match = html.match(/'mp4'\s*:\s*'([^']+)'/) || html.match(/"mp4"\s*:\s*"([^"]+)"/);
+
+            const results = [];
+            if (hlsMatch) results.push(new StreamResult({
+                url: hlsMatch[1],
+                source: "VOE",
+                quality: 1080,
+                headers: { "Referer": "https://voe.sx/" }
+            }));
+            if (mp4Match) results.push(new StreamResult({
+                url: mp4Match[1],
+                source: "VOE MP4",
+                quality: 1080,
+                headers: { "Referer": "https://voe.sx/" }
+            }));
+            return results;
+        } catch (_) { return []; }
+    }
+
+    // StreamTape — innerHTML token obfuscation
+    async function extractStreamTape(url) {
+        try {
+            const res = await http_get(url, {
+                "Referer": "https://streamtape.com/",
+                "User-Agent": DOOD_UA
+            });
+            if (!res || !res.body) return [];
+            const html = res.body;
+
+            const match = html.match(/id="ideoooolink"[^>]*>(.*?)</)
+                || html.match(/\.innerHTML\s*=\s*"(\/\/[^"]+\.streamtape\.com[^"]+)"/)
+                || html.match(/document\.getElementById\('ideoooolink'\)[^=]*=[^"]*"([^"]+)"/);
+
+            if (!match) return [];
+            let streamUrl = match[1].replace(/\s/g, "");
+            if (!streamUrl.startsWith("http")) streamUrl = "https:" + streamUrl;
+
+            return [new StreamResult({
+                url: streamUrl,
+                source: "StreamTape",
+                quality: 720,
+                headers: { "Referer": "https://streamtape.com/" }
+            })];
+        } catch (_) { return []; }
+    }
+
+    // EmturbovidExtractor / javclan — file:"..." trong script
+    async function extractFilesim(url, sourceName) {
+        try {
+            const res = await http_get(url, { "User-Agent": DOOD_UA });
+            if (!res || !res.body) return [];
+            const match = res.body.match(/file\s*:\s*["']([^"']+)["']/);
+            if (!match) return [];
+            return [new StreamResult({
+                url: match[1],
+                source: sourceName || "FileMoon",
+                quality: 1080,
+                headers: {
+                    "Referer": url,
+                    "Origin": new URL(url).origin
+                }
+            })];
+        } catch (_) { return []; }
+    }
+
+    // Router chính — phân loại URL → đúng extractor
+    async function resolveVideoUrl(rawUrl) {
+        const u = rawUrl.toLowerCase();
+
+        // DoodStream family
+        if (u.includes("doply.net") || u.includes("doodstream") || u.includes("dood.")
+            || u.includes("myvidplay") || u.includes("d000d.com") || u.includes("ds2play")) {
+            return await extractDoodStream(rawUrl);
+        }
+        // VOE
+        if (u.includes("voe.sx")) return await extractVoe(rawUrl);
+        // StreamTape
+        if (u.includes("streamtape")) return await extractStreamTape(rawUrl);
+        // MixDrop
+        if (u.includes("mixdrop")) return await extractMixDrop(rawUrl);
+        // Streamwish family
+        if (u.includes("streamwish") || u.includes("swhoi") || u.includes("javsw")
+            || u.includes("streamhihi") || u.includes("wishfast") || u.includes("strwish")) {
+            return await extractStreamwish(rawUrl, "Streamwish");
+        }
+        // Vidhide family
+        if (u.includes("vidhide") || u.includes("javlion") || u.includes("javmoon")) {
+            return await extractVidhide(rawUrl, u.includes("javmoon") ? "FileMoon" : "Vidhide");
+        }
+        // FileMoon / Filesim / swhoi / javclan / emturbovid
+        if (u.includes("filemoon") || u.includes("emturbovid") || u.includes("javclan")) {
+            return await extractFilesim(rawUrl, u.includes("filemoon") ? "FileMoon" : "Stream");
+        }
+        // Javggvideo
+        if (u.includes("javggvideo")) return await extractJavggvideo(rawUrl);
+        // Maxstream
+        if (u.includes("maxstream")) return await extractMaxstream(rawUrl);
+
+        // Fallback: thử loadExtractor rồi push thẳng
+        if (typeof globalThis.loadExtractor === "function") {
+            const results = [];
+            try { await globalThis.loadExtractor(rawUrl, s => results.push(s)); } catch (_) {}
+            if (results.length) return results;
+        }
+        return [new StreamResult({
+            url: rawUrl,
+            source: "XXXParodyHD",
+            headers: { "Referer": BASE_URL }
+        })];
+    }
+
+    async function loadStreams(url, cb) {
+        try {
+            const res = await http_get(url, {
+                "Referer": BASE_URL,
+                "User-Agent": DOOD_UA
             });
 
-            const results = (await Promise.all(streamPromises)).flat();
-            // Deduplicate by URL
+            if (!res || res.status !== 200) {
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "HTTP error: " + (res && res.status) });
+            }
+
+            const html = res.body || "";
+            const videoUrls = [];
             const seen = new Set();
-            const deduped = results.filter(stream => {
-                const key = stream.url;
-                if (!key || seen.has(key)) return false;
-                seen.add(key);
-                return true;
+
+            function addUrl(u) {
+                if (!u || seen.has(u) || isBadUrl(u)) return;
+                seen.add(u);
+                videoUrls.push(u);
+            }
+
+            // Ưu tiên 1: data-fl-source (URL embed gốc)
+            const flSourceRegex = /data-fl-source="(https?:\/\/[^"]+)"/gi;
+            let m;
+            while ((m = flSourceRegex.exec(html)) !== null) addUrl(m[1].trim());
+
+            // Ưu tiên 2: data-fl-url
+            const flUrlRegex = /data-fl-url="(https?:\/\/[^"]+)"/gi;
+            while ((m = flUrlRegex.exec(html)) !== null) addUrl(m[1].trim());
+
+            // Fallback: href của <a id="#iframe">
+            if (!videoUrls.length) {
+                const iframeRegex = /<a\s[^>]*id="#iframe"[^>]*>/gi;
+                while ((m = iframeRegex.exec(html)) !== null) {
+                    const hrefMatch = m[0].match(/href="(https?:\/\/[^"]+)"/i);
+                    if (hrefMatch) addUrl(hrefMatch[1].trim());
+                }
+            }
+
+            if (!videoUrls.length) {
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "No stream links found" });
+            }
+
+            const allResults = await Promise.all(videoUrls.map(u => resolveVideoUrl(u)));
+            const flat = allResults.flat();
+
+            // Deduplicate
+            const deduped = [];
+            const seenUrls = new Set();
+            flat.forEach(function (item) {
+                if (!item || !item.url || seenUrls.has(item.url)) return;
+                seenUrls.add(item.url);
+                deduped.push(item);
             });
+
+            if (!deduped.length) {
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "Could not extract any streams" });
+            }
 
             cb({ success: true, data: deduped });
         } catch (e) {
@@ -407,7 +666,7 @@
         }
     }
 
-    // Exports
+    // Export
     globalThis.getHome = getHome;
     globalThis.search = search;
     globalThis.load = load;
