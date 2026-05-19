@@ -1,0 +1,10 @@
+{
+  "packageName": "dev.lord.javseen",
+  "name": "Javseen",
+  "version": 1,
+  "baseUrl": "https://javseen.tv",
+  "description": "Javseen - JAV streaming with multiple server support.",
+  "authors": ["Lord"],
+  "languages": ["jp", "en"],
+  "categories": ["NSFW"]
+}
