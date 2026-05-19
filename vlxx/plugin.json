@@ -3,14 +3,9 @@
   "name": "Vlxx",
   "version": 1,
   "baseUrl": "https://vlxx.moi",
-  "description": "Vlxx plugin",
-  "authors": [
-    "Lord"
-  ],
-  "languages": [
-    "en"
-  ],
-  "categories": [
-    "Movie"
-  ]
+  "description": "Vlxx - Phim sex Việt Nam",
+  "authors": ["Lord"],
+  "languages": ["vi"],
+  "categories": ["NSFW"],
+  "isAdult": true
 }
