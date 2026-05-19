@@ -1,12 +1,13 @@
 (function () {
     /**
-     * @type {import('@skystream/sdk').Manifest}
      * XXXParodyHD Plugin for SkyStream
-     * Converted from CloudStream (Kotlin) by Claude
-     * Original author: @Kraptor123 for @Cs-GizliKeyif
+     * Converted from CloudStream (Kotlin)
+     * Original: @Kraptor123 for @Cs-GizliKeyif
      */
 
-    const BASE_URL = manifest?.baseUrl || "https://xxxparodyhd.net";
+    const BASE_URL = (typeof manifest !== "undefined" && manifest?.baseUrl) || "https://xxxparodyhd.net";
+    const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
+    const HEADERS = { "User-Agent": UA, "Referer": BASE_URL };
 
     const CATEGORIES = [
         { name: "Movies",          url: `${BASE_URL}/movies/` },
@@ -15,307 +16,368 @@
         { name: "All Sex",         url: `${BASE_URL}/genre/free-all-sex/` },
         { name: "Amateurs",        url: `${BASE_URL}/genre/free-amateurs/` },
         { name: "Anal",            url: `${BASE_URL}/genre/free-anal/` },
-        { name: "Anal Creampie",   url: `${BASE_URL}/genre/free-anal-creampie/` },
         { name: "Animation",       url: `${BASE_URL}/genre/free-animation/` },
         { name: "Asian",           url: `${BASE_URL}/genre/free-asian/` },
-        { name: "Ass to Mouth",    url: `${BASE_URL}/genre/free-ass-to-mouth/` },
-        { name: "Babysitter",      url: `${BASE_URL}/genre/free-babysitter/` },
         { name: "BDSM",            url: `${BASE_URL}/genre/free-bdsm/` },
-        { name: "Beach",           url: `${BASE_URL}/genre/free-beach/` },
         { name: "Big Boobs",       url: `${BASE_URL}/genre/free-big-boobs/` },
-        { name: "Big Butt",        url: `${BASE_URL}/genre/free-big-butt/` },
-        { name: "Big Cocks",       url: `${BASE_URL}/genre/free-big-cocks/` },
-        { name: "Blondes",         url: `${BASE_URL}/genre/free-blondes/` },
         { name: "Blowjobs",        url: `${BASE_URL}/genre/free-blowjobs/` },
-        { name: "Brazilian",       url: `${BASE_URL}/genre/free-brazilian/` },
-        { name: "Cheerleaders",    url: `${BASE_URL}/genre/free-cheerleaders/` },
-        { name: "College",         url: `${BASE_URL}/genre/free-college/` },
-        { name: "Cougars",         url: `${BASE_URL}/genre/free-cougars/` },
-        { name: "Couples",         url: `${BASE_URL}/genre/free-couples/` },
         { name: "Creampie",        url: `${BASE_URL}/genre/free-creampie/` },
-        { name: "Cumshots",        url: `${BASE_URL}/genre/free-cumshots/` },
-        { name: "Czech",           url: `${BASE_URL}/genre/free-czech/` },
-        { name: "Deep Throat",     url: `${BASE_URL}/genre/free-deep-throat/` },
-        { name: "Erotica",         url: `${BASE_URL}/genre/free-erotica/` },
         { name: "European",        url: `${BASE_URL}/genre/free-european/` },
-        { name: "Facesitting",     url: `${BASE_URL}/genre/free-facesitting/` },
-        { name: "Facials",         url: `${BASE_URL}/genre/free-facials/` },
         { name: "Family Roleplay", url: `${BASE_URL}/genre/free-family-roleplay/` },
         { name: "Fantasy",         url: `${BASE_URL}/genre/free-fantasy/` },
-        { name: "Feature",         url: `${BASE_URL}/genre/free-feature/` },
         { name: "Fetish",          url: `${BASE_URL}/genre/free-fetish/` },
-        { name: "Fingering",       url: `${BASE_URL}/genre/free-fingering/` },
         { name: "Gangbang",        url: `${BASE_URL}/genre/free-gangbang/` },
-        { name: "German",          url: `${BASE_URL}/genre/free-german/` },
-        { name: "Hairy",           url: `${BASE_URL}/genre/free-hairy/` },
-        { name: "Handjobs",        url: `${BASE_URL}/genre/free-handjobs/` },
         { name: "Hardcore",        url: `${BASE_URL}/genre/free-hardcore/` },
         { name: "Hentai",          url: `${BASE_URL}/genre/free-hentai/` },
-        { name: "Italian",         url: `${BASE_URL}/genre/free-italian/` },
         { name: "Japanese",        url: `${BASE_URL}/genre/free-japanese/` },
-        { name: "Latin",           url: `${BASE_URL}/genre/free-latin/` },
         { name: "Lesbian",         url: `${BASE_URL}/genre/free-lesbian/` },
-        { name: "Lingerie",        url: `${BASE_URL}/genre/free-lingerie/` },
         { name: "Massage",         url: `${BASE_URL}/genre/free-massage/` },
-        { name: "Masturbation",    url: `${BASE_URL}/genre/free-masturbation/` },
         { name: "Mature",          url: `${BASE_URL}/genre/free-mature/` },
         { name: "MILF",            url: `${BASE_URL}/genre/free-milf/` },
-        { name: "Mystery",         url: `${BASE_URL}/genre/free-mystery/` },
-        { name: "Oiled",           url: `${BASE_URL}/genre/free-oiled/` },
-        { name: "Outdoors",        url: `${BASE_URL}/genre/free-outdoors/` },
         { name: "Parody",          url: `${BASE_URL}/genre/free-parody/` },
         { name: "POV",             url: `${BASE_URL}/genre/free-pov/` },
-        { name: "Public Sex",      url: `${BASE_URL}/genre/free-public-sex/` },
-        { name: "Small Tits",      url: `${BASE_URL}/genre/free-small-tits/` },
         { name: "Squirting",       url: `${BASE_URL}/genre/free-squirting/` },
-        { name: "Stockings",       url: `${BASE_URL}/genre/free-stockings/` },
-        { name: "Tattoos",         url: `${BASE_URL}/genre/free-tattoos/` },
         { name: "Threesomes",      url: `${BASE_URL}/genre/free-threesomes/` },
-        { name: "Virgin",          url: `${BASE_URL}/genre/free-virgin/` },
     ];
 
-    // --- Helpers ---
+    // ==================== HELPERS ====================
 
     function fixUrl(url) {
         if (!url) return null;
+        url = url.trim();
         if (url.startsWith("//")) return "https:" + url;
         if (url.startsWith("http")) return url;
-        return BASE_URL + (url.startsWith("/") ? url : "/" + url);
+        if (url.startsWith("/")) return BASE_URL + url;
+        return null;
+    }
+
+    function stripTags(html) {
+        return (html || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
     }
 
     function parseItems(html) {
         const items = [];
-        // Match each ml-item block
-        const itemRegex = /<div[^>]+class="[^"]*ml-item[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/g;
-        let match;
-        while ((match = itemRegex.exec(html)) !== null) {
-            const block = match[0];
-
-            const titleMatch = block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-            const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, "").trim() : null;
-            if (!title) continue;
-
-            const hrefMatch = block.match(/<a[^>]+href="([^"]+)"/i);
-            const href = hrefMatch ? fixUrl(hrefMatch[1]) : null;
-            if (!href) continue;
-
-            const imgMatch = block.match(/<img[^>]+src="([^"]+)"/i);
-            const posterUrl = imgMatch ? fixUrl(imgMatch[1]) : null;
-
+        const seen = new Set();
+        const blockRegex = /<div[^>]+class="[^"]*\bml-item\b[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
+        let block;
+        while ((block = blockRegex.exec(html)) !== null) {
+            const inner = block[1];
+            const aMatch = inner.match(/<a[^>]+href="([^"]+)"/i);
+            const href = aMatch ? fixUrl(aMatch[1]) : null;
+            if (!href || seen.has(href)) continue;
+            seen.add(href);
+            const h2 = inner.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+            const title = h2 ? stripTags(h2[1]) : "Unknown";
+            const img = inner.match(/<img[^>]+src="([^"]+)"/i);
+            const poster = img ? fixUrl(img[1]) : null;
             items.push(new MultimediaItem({
-                title: title,
-                url: href,
-                posterUrl: posterUrl,
-                type: "movie",
-                isAdult: true,
-                contentRating: "18+"
+                title, url: href, posterUrl: poster,
+                type: "movie", isAdult: true, contentRating: "18+"
             }));
         }
         return items;
     }
 
-    // --- Core Functions ---
+    // ==================== getHome ====================
 
     async function getHome(cb) {
         try {
             const homeData = {};
-
-            // Fetch first 4 categories in parallel, rest sequentially to avoid overloading
-            const firstBatch = CATEGORIES.slice(0, 4);
-            const results = await Promise.allSettled(
-                firstBatch.map(async function (cat) {
-                    const res = await http_get(cat.url, { "Referer": BASE_URL });
-                    if (!res || res.status !== 200) return { name: cat.name, items: [] };
-                    const items = parseItems(res.body || "");
-                    return { name: cat.name, items };
+            const batch1 = await Promise.allSettled(
+                CATEGORIES.slice(0, 4).map(async (cat) => {
+                    const res = await http_get(cat.url, HEADERS);
+                    return { name: cat.name, items: (res && res.body) ? parseItems(res.body) : [] };
                 })
             );
-
-            results.forEach(function (result) {
-                if (result.status !== "fulfilled") return;
-                if (!result.value.items.length) return;
-                homeData[result.value.name] = result.value.items;
+            batch1.forEach(r => {
+                if (r.status === "fulfilled" && r.value.items.length)
+                    homeData[r.value.name] = r.value.items;
             });
-
-            // Fetch remaining categories
             for (let i = 4; i < CATEGORIES.length; i++) {
                 try {
-                    const cat = CATEGORIES[i];
-                    const res = await http_get(cat.url, { "Referer": BASE_URL });
-                    if (!res || res.status !== 200) continue;
-                    const items = parseItems(res.body || "");
-                    if (items.length) homeData[cat.name] = items;
+                    const res = await http_get(CATEGORIES[i].url, HEADERS);
+                    const items = (res && res.body) ? parseItems(res.body) : [];
+                    if (items.length) homeData[CATEGORIES[i].name] = items;
                 } catch (_) {}
             }
-
-            if (!Object.keys(homeData).length) {
-                return cb({ success: false, errorCode: "HOME_ERROR", message: "No home sections available" });
-            }
-
+            if (!Object.keys(homeData).length)
+                return cb({ success: false, errorCode: "HOME_ERROR", message: "No data" });
             cb({ success: true, data: homeData });
         } catch (e) {
             cb({ success: false, errorCode: "HOME_ERROR", message: e.message });
         }
     }
 
+    // ==================== search ====================
+
     async function search(query, cb) {
         try {
-            const url = `${BASE_URL}/search/${encodeURIComponent(query)}`;
-            const res = await http_get(url, { "Referer": BASE_URL });
-            if (!res || res.status !== 200) {
-                return cb({ success: false, errorCode: "SEARCH_ERROR", message: "Request failed" });
-            }
-            const items = parseItems(res.body || "");
-            cb({ success: true, data: items });
+            const res = await http_get(`${BASE_URL}/search/${encodeURIComponent(query)}`, HEADERS);
+            cb({ success: true, data: (res && res.body) ? parseItems(res.body) : [] });
         } catch (e) {
             cb({ success: false, errorCode: "SEARCH_ERROR", message: e.message });
         }
     }
 
+    // ==================== load ====================
+
     async function load(url, cb) {
         try {
-            const res = await http_get(url, { "Referer": BASE_URL });
-            if (!res || res.status !== 200) {
-                return cb({ success: false, message: "Failed to load page" });
-            }
-            const html = res.body || "";
+            const res = await http_get(url, HEADERS);
+            if (!res || !res.body)
+                return cb({ success: false, errorCode: "LOAD_ERROR", message: "Empty response" });
 
-            // Title
-            const titleMatch = html.match(/<div[^>]+class="[^"]*mvic-desc[^"]*"[^>]*>[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>/i);
-            const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, "").trim() : null;
-            if (!title) return cb({ success: false, message: "Title not found" });
+            const html = res.body;
+
+            // Title — nhiều fallback
+            let title = "Unknown";
+            const tMatch = html.match(/<div[^>]*mvic-desc[^>]*>[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>/i)
+                || html.match(/<h1[^>]*class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i)
+                || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)
+                || html.match(/<title>([\s\S]*?)<\/title>/i);
+            if (tMatch) title = stripTags(tMatch[1]).replace(/\s*[-|–]\s*.+$/, "").trim() || "Unknown";
 
             // Poster
-            const posterMatch = html.match(/<div[^>]+class="[^"]*thumb[^"]*"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"/i);
-            const posterUrl = posterMatch ? fixUrl(posterMatch[1]) : null;
+            const pMatch = html.match(/<div[^>]*\bthumb\b[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"/i)
+                || html.match(/property="og:image"\s+content="([^"]+)"/i)
+                || html.match(/content="([^"]+)"\s+property="og:image"/i);
+            const posterUrl = pMatch ? fixUrl(pMatch[1]) : null;
 
             // Description
-            const descMatch = html.match(/<div[^>]+class="[^"]*mvic-desc[^"]*"[^>]*>[\s\S]*?<div[^>]+class="[^"]*desc[^"]*"[^>]*>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i);
-            const description = descMatch ? descMatch[1].replace(/<[^>]*>/g, "").trim() : null;
+            const dMatch = html.match(/<div[^>]*\bdesc\b[^>]*>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i);
+            const description = dMatch ? stripTags(dMatch[1]) : undefined;
 
-            // Year — looks for "Released Date:" row
-            const yearMatch = html.match(/Released Date:[^<]*,\s*(\d{4})/i);
-            const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
+            // Year
+            const yMatch = html.match(/Released[^:]*:[^<]*,\s*(\d{4})/i);
+            const year = yMatch ? parseInt(yMatch[1]) : undefined;
 
-            // Duration in minutes
-            const durationMatch = html.match(/(\d+)\s*mins/i);
-            const duration = durationMatch ? parseInt(durationMatch[1]) : undefined;
+            // Duration
+            const durMatch = html.match(/(\d+)\s*mins?/i);
+            const duration = durMatch ? parseInt(durMatch[1]) : undefined;
 
-            // Genres/Tags
+            // Tags
             const tags = [];
-            const genreBlockMatch = html.match(/Genres:[\s\S]*?(<span[\s\S]*?<\/p>)/i);
-            if (genreBlockMatch) {
-                const tagRegex = /<a[^>]*>([\s\S]*?)<\/a>/g;
-                let tagMatch;
-                while ((tagMatch = tagRegex.exec(genreBlockMatch[1])) !== null) {
-                    const t = tagMatch[1].replace(/<[^>]*>/g, "").trim();
+            const genreBlock = html.match(/Genres?\s*:[\s\S]{0,50}(<span[\s\S]*?)<\/p>/i);
+            if (genreBlock) {
+                const aReg = /<a[^>]*>([\s\S]*?)<\/a>/gi;
+                let am;
+                while ((am = aReg.exec(genreBlock[1])) !== null) {
+                    const t = stripTags(am[1]);
                     if (t) tags.push(t);
                 }
             }
 
-            // Cast (Pornstars)
+            // Cast
             const cast = [];
-            const pornstarBlockMatch = html.match(/Pornstars:[\s\S]*?(<span[\s\S]*?<\/p>)/i);
-            if (pornstarBlockMatch) {
-                const actorRegex = /<a[^>]*>([\s\S]*?)<\/a>/g;
-                let actorMatch;
-                while ((actorMatch = actorRegex.exec(pornstarBlockMatch[1])) !== null) {
-                    const name = actorMatch[1].replace(/<[^>]*>/g, "").trim();
-                    if (name) cast.push(new Actor({ name }));
+            const starBlock = html.match(/Pornstars?\s*:[\s\S]{0,50}(<span[\s\S]*?)<\/p>/i);
+            if (starBlock) {
+                const aReg = /<a[^>]*>([\s\S]*?)<\/a>/gi;
+                let am;
+                while ((am = aReg.exec(starBlock[1])) !== null) {
+                    const n = stripTags(am[1]);
+                    if (n) cast.push(new Actor({ name: n }));
                 }
             }
 
             // Recommendations
             const recommendations = parseItems(html);
 
-            const result = new MultimediaItem({
-                title,
-                url,
-                posterUrl,
-                type: "movie",
-                description,
-                year,
-                duration,
-                tags: tags.length ? tags : undefined,
-                cast: cast.length ? cast : undefined,
-                recommendations: recommendations.length ? recommendations : undefined,
-                isAdult: true,
-                contentRating: "18+"
+            // BẮT BUỘC có episode để nút Watch không xám
+            // episode.url = URL trang phim → loadStreams fetch lại trang và parse link
+            const episode = new Episode({
+                name: title,
+                url: url,
+                season: 1,
+                episode: 1,
+                dubStatus: "none",
+                posterUrl: posterUrl || undefined
             });
 
-            cb({ success: true, data: result });
+            cb({
+                success: true,
+                data: new MultimediaItem({
+                    title, url, posterUrl,
+                    type: "movie",
+                    description,
+                    year, duration,
+                    tags: tags.length ? tags : undefined,
+                    cast: cast.length ? cast : undefined,
+                    recommendations: recommendations.length ? recommendations : undefined,
+                    episodes: [episode],
+                    isAdult: true,
+                    contentRating: "18+"
+                })
+            });
         } catch (e) {
             cb({ success: false, errorCode: "LOAD_ERROR", message: e.message });
         }
     }
 
+    // ==================== EXTRACTORS ====================
+
+    const BAD_HOSTS = ["localnews.click", "google.com", "xxxparodyhd.net", "nitroflare", "freedl", "frdl.io"];
+    function isBadUrl(u) {
+        const low = (u || "").toLowerCase();
+        return BAD_HOSTS.some(h => low.includes(h));
+    }
+
+    async function extractDood(url) {
+        try {
+            const embed = url
+                .replace("doply.net", "myvidplay.com")
+                .replace(/doodstream\.[a-z]+/i, "myvidplay.com")
+                .replace(/(?<!\.)dood\.[a-z]+/i, "myvidplay.com")
+                .replace("d000d.com", "myvidplay.com")
+                .replace("ds2play.com", "myvidplay.com");
+
+            const r1 = await http_get(embed, { "Referer": "https://myvidplay.com", "User-Agent": UA });
+            if (!r1 || !r1.body) return [];
+            const m = r1.body.match(/['"](\/pass_md5\/[^'"]+)['"]/);
+            if (!m) return [];
+            const passPath = m[1];
+            const token = passPath.split("/").pop();
+            const r2 = await http_get("https://myvidplay.com" + passPath, { "Referer": embed, "User-Agent": UA });
+            if (!r2 || !r2.body) return [];
+            const base = r2.body.trim();
+            if (!base.startsWith("http")) return [];
+            const rand = Math.random().toString(36).slice(2, 12).padEnd(10, "x");
+            return [new StreamResult({
+                url: `${base}${rand}?token=${token}&expiry=${Date.now()}`,
+                source: "DoodStream", quality: 1080,
+                headers: { "Referer": "https://myvidplay.com", "User-Agent": UA }
+            })];
+        } catch (_) { return []; }
+    }
+
+    async function extractVoe(url) {
+        try {
+            const r = await http_get(url, { "Referer": "https://voe.sx/", "User-Agent": UA });
+            if (!r || !r.body) return [];
+            const hls = r.body.match(/'hls'\s*:\s*'([^']+)'/) || r.body.match(/"hls"\s*:\s*"([^"]+)"/);
+            const mp4 = r.body.match(/'mp4'\s*:\s*'([^']+)'/) || r.body.match(/"mp4"\s*:\s*"([^"]+)"/);
+            const out = [];
+            if (hls) out.push(new StreamResult({ url: hls[1], source: "VOE", quality: 1080, headers: { "Referer": "https://voe.sx/" } }));
+            if (mp4) out.push(new StreamResult({ url: mp4[1], source: "VOE MP4", quality: 1080, headers: { "Referer": "https://voe.sx/" } }));
+            return out;
+        } catch (_) { return []; }
+    }
+
+    async function extractStreamTape(url) {
+        try {
+            const r = await http_get(url, { "Referer": "https://streamtape.com/", "User-Agent": UA });
+            if (!r || !r.body) return [];
+            const m = r.body.match(/id="ideoooolink"[^>]*>([^<]*)/)
+                || r.body.match(/\.innerHTML\s*=\s*"(\/\/[^"]+streamtape[^"]+)"/);
+            if (!m) return [];
+            let su = m[1].replace(/\s/g, "");
+            if (!su.startsWith("http")) su = "https:" + su;
+            return [new StreamResult({ url: su, source: "StreamTape", quality: 720, headers: { "Referer": "https://streamtape.com/" } })];
+        } catch (_) { return []; }
+    }
+
+    async function extractMixDrop(url) {
+        try {
+            const r = await http_get(url.replace("/f/", "/e/"), { "Referer": "https://mixdrop.co/", "User-Agent": UA });
+            if (!r || !r.body) return [];
+            const m = r.body.match(/MDCore\.wurl\s*=\s*"([^"]+)"/) || r.body.match(/wurl\s*=\s*"([^"]+)"/);
+            if (!m) return [];
+            let su = m[1];
+            if (su.startsWith("//")) su = "https:" + su;
+            return [new StreamResult({ url: su, source: "MixDrop", quality: 1080, headers: { "Referer": "https://mixdrop.co/" } })];
+        } catch (_) { return []; }
+    }
+
+    async function extractFilePattern(url, sourceName) {
+        try {
+            const r = await http_get(url, { "User-Agent": UA, "Referer": url });
+            if (!r || !r.body) return [];
+            let src = r.body;
+            if (typeof getAndUnpack === "function" && /function\(p,a,c,k,e,d\)/.test(src)) {
+                try { src = getAndUnpack(src) || src; } catch (_) {}
+            }
+            const m = src.match(/file\s*:\s*["']([^"']+\.m3u8[^"']*)["']/)
+                || src.match(/sources\s*:\s*\[[\s\S]*?file\s*:\s*["']([^"']+)["']/)
+                || src.match(/file\s*:\s*["']([^"']+)["']/)
+                || src.match(/var urlPlay\s*=\s*['"]([^'"]+)['"]/);
+            if (!m) return [];
+            return [new StreamResult({ url: m[1], source: sourceName || "Stream", quality: 1080, headers: { "Referer": url, "User-Agent": UA } })];
+        } catch (_) { return []; }
+    }
+
+    async function resolveOne(rawUrl) {
+        const u = rawUrl.toLowerCase();
+        if (u.includes("doply.net") || u.includes("doodstream") || u.includes("myvidplay")
+            || u.includes("d000d") || u.includes("ds2play") || /dood\.[a-z]/.test(u))
+            return extractDood(rawUrl);
+        if (u.includes("voe.sx"))     return extractVoe(rawUrl);
+        if (u.includes("streamtape")) return extractStreamTape(rawUrl);
+        if (u.includes("mixdrop"))    return extractMixDrop(rawUrl);
+        // Tất cả host còn lại đều dùng pattern file:"..." hoặc urlPlay
+        return extractFilePattern(rawUrl,
+            u.includes("streamwish") || u.includes("swhoi") || u.includes("javsw") ? "Streamwish" :
+            u.includes("vidhide") || u.includes("javlion") ? "Vidhide" :
+            u.includes("filemoon") || u.includes("javmoon") ? "FileMoon" :
+            u.includes("javggvideo") ? "JavggVideo" :
+            u.includes("maxstream") ? "Maxstream" : "Stream"
+        );
+    }
+
+    // ==================== loadStreams ====================
+
     async function loadStreams(url, cb) {
         try {
-            const res = await http_get(url, { "Referer": BASE_URL });
-            if (!res || res.status !== 200) {
-                return cb({ success: false, errorCode: "STREAM_ERROR", message: "Failed to load page" });
-            }
-            const html = res.body || "";
+            const res = await http_get(url, HEADERS);
+            if (!res || !res.body)
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "Failed to fetch page" });
 
-            // Find all iframe links with id="#iframe"
-            // Matches: <a id="#iframe" href="...">  (CloudStream: div.Rtable1 a#\#iframe)
-            const iframeRegex = /<a[^>]+id="#iframe"[^>]+href="([^"]+)"/gi;
-            const videoUrls = [];
-            let iframeMatch;
-            while ((iframeMatch = iframeRegex.exec(html)) !== null) {
-                const videoUrl = iframeMatch[1].trim();
-                if (videoUrl) videoUrls.push(videoUrl);
-            }
-
-            if (!videoUrls.length) {
-                return cb({ success: false, errorCode: "STREAM_ERROR", message: "No streams found" });
-            }
-
-            const streamResults = [];
-
-            // Use built-in extractor for each video URL (same as CloudStream's loadExtractor)
-            await Promise.allSettled(
-                videoUrls.map(async function (videoUrl) {
-                    if (typeof globalThis.loadExtractor === "function") {
-                        try {
-                            await globalThis.loadExtractor(videoUrl, function (stream) {
-                                streamResults.push(stream);
-                            });
-                        } catch (_) {
-                            // Fallback: push direct URL if extractor fails
-                            streamResults.push(new StreamResult({
-                                url: videoUrl,
-                                source: "XXXParodyHD",
-                                headers: { "Referer": BASE_URL }
-                            }));
-                        }
-                    } else {
-                        streamResults.push(new StreamResult({
-                            url: videoUrl,
-                            source: "XXXParodyHD",
-                            headers: { "Referer": BASE_URL }
-                        }));
-                    }
-                })
-            );
-
-            // Deduplicate
-            const deduped = [];
+            const html = res.body;
+            const urls = [];
             const seen = new Set();
-            streamResults.forEach(function (item) {
-                const key = item.url;
-                if (seen.has(key)) return;
-                seen.add(key);
-                deduped.push(item);
+            function add(u) {
+                u = (u || "").trim();
+                if (!u || seen.has(u) || isBadUrl(u)) return;
+                seen.add(u);
+                urls.push(u);
+            }
+
+            // Ưu tiên 1: data-fl-source (URL embed trực tiếp)
+            let m;
+            const r1 = /data-fl-source="(https?:\/\/[^"]+)"/gi;
+            while ((m = r1.exec(html)) !== null) add(m[1]);
+
+            // Ưu tiên 2: data-fl-url (URL trang host gốc)
+            const r2 = /data-fl-url="(https?:\/\/[^"]+)"/gi;
+            while ((m = r2.exec(html)) !== null) add(m[1]);
+
+            // Fallback: <a id="#iframe" href="...">
+            const r3 = /<a\b[^>]*\bid="#iframe"[^>]*>/gi;
+            while ((m = r3.exec(html)) !== null) {
+                const hm = m[0].match(/href="(https?:\/\/[^"]+)"/i);
+                if (hm) add(hm[1]);
+            }
+
+            if (!urls.length)
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "No stream URLs found" });
+
+            const allStreams = (await Promise.all(urls.map(resolveOne))).flat();
+
+            const final = [];
+            const finalSeen = new Set();
+            allStreams.forEach(s => {
+                if (!s || !s.url || finalSeen.has(s.url)) return;
+                finalSeen.add(s.url);
+                final.push(s);
             });
 
-            cb({ success: true, data: deduped });
+            if (!final.length)
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "All sources failed" });
+
+            cb({ success: true, data: final });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
         }
     }
 
-    // Export
     globalThis.getHome = getHome;
     globalThis.search = search;
     globalThis.load = load;
