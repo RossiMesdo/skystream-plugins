@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.xnhau",
+  "name": "xNhau",
+  "version": 1,
+  "baseUrl": "https://xnhau.im",
+  "description": "xNhau - Phim người lớn tiếng Việt",
+  "authors": ["Lord"],
+  "languages": ["vi"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
