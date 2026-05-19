@@ -116,23 +116,17 @@
 
     // --- Core Functions ---
 
-    // Fetch one category page, supports pagination via page param
-    async function fetchCategoryPage(baseUrl, page) {
-        const url = page && page > 1 ? `${baseUrl}page/${page}/` : baseUrl;
-        const res = await http_get(url, { "Referer": BASE_URL });
-        if (!res || res.status !== 200) return [];
-        return parseItems(res.body || "");
-    }
-
     async function getHome(cb) {
         try {
             const homeData = {};
 
-            // Fetch first 4 categories in parallel
+            // Fetch first 4 categories in parallel, rest sequentially to avoid overloading
             const firstBatch = CATEGORIES.slice(0, 4);
             const results = await Promise.allSettled(
                 firstBatch.map(async function (cat) {
-                    const items = await fetchCategoryPage(cat.url, 1);
+                    const res = await http_get(cat.url, { "Referer": BASE_URL });
+                    if (!res || res.status !== 200) return { name: cat.name, items: [] };
+                    const items = parseItems(res.body || "");
                     return { name: cat.name, items };
                 })
             );
@@ -143,11 +137,14 @@
                 homeData[result.value.name] = result.value.items;
             });
 
-            // Fetch remaining categories sequentially
+            // Fetch remaining categories
             for (let i = 4; i < CATEGORIES.length; i++) {
                 try {
-                    const items = await fetchCategoryPage(CATEGORIES[i].url, 1);
-                    if (items.length) homeData[CATEGORIES[i].name] = items;
+                    const cat = CATEGORIES[i];
+                    const res = await http_get(cat.url, { "Referer": BASE_URL });
+                    if (!res || res.status !== 200) continue;
+                    const items = parseItems(res.body || "");
+                    if (items.length) homeData[cat.name] = items;
                 } catch (_) {}
             }
 
@@ -231,16 +228,6 @@
             // Recommendations
             const recommendations = parseItems(html);
 
-            // SkyStream cần ít nhất 1 Episode để nút Watch không bị xám
-            // URL của episode = URL trang phim → loadStreams sẽ fetch và parse link
-            const episode = new Episode({
-                name: title,
-                url: url,
-                season: 1,
-                episode: 1,
-                dubStatus: "none"
-            });
-
             const result = new MultimediaItem({
                 title,
                 url,
@@ -252,7 +239,6 @@
                 tags: tags.length ? tags : undefined,
                 cast: cast.length ? cast : undefined,
                 recommendations: recommendations.length ? recommendations : undefined,
-                episodes: [episode],
                 isAdult: true,
                 contentRating: "18+"
             });
@@ -263,402 +249,65 @@
         }
     }
 
-    // Danh sách domain video host hợp lệ
-    const VIDEO_HOSTS = [
-        "dood", "doply", "mixdrop", "voe.sx", "streamtape",
-        "luluvid", "lulustream", "rpmplay", "rpmshare",
-        "upns.online", "upnshare", "player4me", "embedseek",
-        "seekplayer", "seekstreaming", "easyvidplayer", "easyvidplay",
-        "filemoon", "streamwish", "vidoza", "upstream",
-        "fembed", "mp4upload", "vidlox", "burstcloud"
-    ];
-
-    // Domain rác cần bỏ qua
-    const SKIP_HOSTS = ["localnews.click", "google.com", "xxxparodyhd.net", "nitroflare", "frdl.io", "freedl"];
-
-    function isVideoHost(url) {
-        const u = url.toLowerCase();
-        return VIDEO_HOSTS.some(function (h) { return u.includes(h); });
-    }
-
-    function isBadUrl(url) {
-        const u = url.toLowerCase();
-        return SKIP_HOSTS.some(function (h) { return u.includes(h); });
-    }
-
-    // Map mirror domain → real host để loadExtractor nhận ra
-    const MIRROR_MAP = {
-        "doply.net":          "doodstream.com",
-        "luluvid.com":        "lulustream.com",
-        "mixdrop.my":         "mixdrop.co",
-        "mixdrop.ag":         "mixdrop.co",
-        "my.rpmplay.online":  "rpmshare.com",
-        "my.upns.online":     "upnshare.com",
-        "vip.player4me.vip":  "player4me.com",
-        "my.player4me.online":"player4me.com",
-        "my.embedseek.online":"seekstreaming.com",
-        "vip.seekplayer.vip": "seekstreaming.com",
-        "p.easyvidplayer.com":"easyvidplay.com",
-        "vip.easyvidplayer.com":"easyvidplay.com",
-    };
-
-    // Cố gắng đổi mirror URL → URL gốc cùng path
-    function normalizeMirrorUrl(url) {
-        try {
-            const parsed = new URL(url);
-            const realHost = MIRROR_MAP[parsed.hostname];
-            if (realHost) {
-                return `https://${realHost}${parsed.pathname}${parsed.hash}${parsed.search}`;
-            }
-        } catch (_) {}
-        return url;
-    }
-
-    // ============================================================
-    // MANUAL EXTRACTORS — dựa theo Kotlin extractor thực tế
-    // ============================================================
-
-    const DOOD_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
-
-    // DoodStream / DoodDoply → thật ra dùng myvidplay.com
-    async function extractDoodStream(url) {
-        try {
-            const embedUrl = url
-                .replace("doply.net", "myvidplay.com")
-                .replace("doodstream.com", "myvidplay.com")
-                .replace("dood.wf", "myvidplay.com")
-                .replace("dood.la", "myvidplay.com")
-                .replace("d000d.com", "myvidplay.com")
-                .replace("ds2play.com", "myvidplay.com");
-
-            const res = await http_get(embedUrl, {
-                "Referer": "https://myvidplay.com",
-                "User-Agent": DOOD_UA
-            });
-            if (!res || !res.body) return [];
-            const html = res.body;
-
-            // Regex: /pass_md5/(expiry)/(token)
-            const md5Match = html.match(/\/pass_md5\/([^/]*)\/([^/'"\s]*)/);
-            if (!md5Match) return [];
-
-            const md5Path = md5Match[0];
-            const expiry = md5Match[1];
-            const token = md5Match[2];
-            const md5Url = "https://myvidplay.com" + md5Path;
-
-            const md5Res = await http_get(md5Url, {
-                "Referer": embedUrl,
-                "User-Agent": DOOD_UA
-            });
-            if (!md5Res || !md5Res.body) return [];
-
-            const baseLink = md5Res.body.trim();
-            const directLink = (token && expiry)
-                ? `${baseLink}?token=${token}&expiry=${expiry}000`
-                : baseLink;
-
-            return [new StreamResult({
-                url: directLink,
-                source: "DoodStream",
-                quality: 1080,
-                headers: {
-                    "Referer": "https://myvidplay.com",
-                    "User-Agent": DOOD_UA
-                }
-            })];
-        } catch (_) { return []; }
-    }
-
-    // Streamwish / swhoi / Javsw / Streamhihi — parse file: "..." trong script
-    async function extractStreamwish(url, sourceName) {
-        try {
-            const res = await http_get(url, { "User-Agent": DOOD_UA });
-            if (!res || !res.body) return [];
-            const html = res.body;
-
-            const fileMatch = html.match(/file\s*:\s*["']([^"']+)["']/);
-            if (!fileMatch) return [];
-
-            return [new StreamResult({
-                url: fileMatch[1],
-                source: sourceName || "Streamwish",
-                quality: 1080,
-                headers: {
-                    "Referer": url,
-                    "User-Agent": DOOD_UA
-                }
-            })];
-        } catch (_) { return []; }
-    }
-
-    // Vidhidepro / Javlion / VidhideVIP — sources:[{file:"..."}]
-    async function extractVidhide(url, sourceName) {
-        try {
-            const res = await http_get(url, { "User-Agent": DOOD_UA });
-            if (!res || !res.body) return [];
-            const html = res.body;
-
-            const match = html.match(/sources\s*:\s*\[\s*\{\s*file\s*:\s*["']([^"']+)["']/);
-            if (!match) return [];
-
-            return [new StreamResult({
-                url: match[1],
-                source: sourceName || "Vidhide",
-                quality: 1080,
-                headers: { "Referer": url }
-            })];
-        } catch (_) { return []; }
-    }
-
-    // Javggvideo — var urlPlay = '...'
-    async function extractJavggvideo(url) {
-        try {
-            const res = await http_get(url, { "User-Agent": DOOD_UA });
-            if (!res || !res.body) return [];
-            const match = res.body.match(/var urlPlay\s*=\s*['"]([^'"]+)['"]/);
-            if (!match) return [];
-            return [new StreamResult({
-                url: match[1],
-                source: "Javgg Video",
-                quality: 1080,
-                headers: { "Referer": url }
-            })];
-        } catch (_) { return []; }
-    }
-
-    // Maxstream — P.A.C.K.E.R obfuscated, unpack rồi parse file:"..."
-    async function extractMaxstream(url) {
-        try {
-            const res = await http_get(url, { "User-Agent": DOOD_UA });
-            if (!res || !res.body) return [];
-            const html = res.body;
-
-            // Thử unpack P.A.C.K.E.R nếu có
-            let script = html;
-            if (typeof getAndUnpack === "function" && /function\(p,a,c,k,e,d\)/.test(html)) {
-                try { script = getAndUnpack(html) || html; } catch (_) {}
-            }
-
-            const match = script.match(/file\s*:\s*["']([^"']+)["']/);
-            if (!match) return [];
-
-            return [new StreamResult({
-                url: match[1],
-                source: "Maxstream",
-                quality: 1080,
-                headers: { "Referer": url }
-            })];
-        } catch (_) { return []; }
-    }
-
-    // MixDrop / MixDropis — MDCore.wurl
-    async function extractMixDrop(url) {
-        try {
-            const embedUrl = url.replace("/f/", "/e/");
-            const res = await http_get(embedUrl, {
-                "Referer": "https://mixdrop.co/",
-                "User-Agent": DOOD_UA
-            });
-            if (!res || !res.body) return [];
-            const html = res.body;
-
-            const wurlMatch = html.match(/MDCore\.wurl\s*=\s*"([^"]+)"/)
-                || html.match(/wurl\s*=\s*"([^"]+)"/);
-            if (!wurlMatch) return [];
-
-            let streamUrl = wurlMatch[1];
-            if (streamUrl.startsWith("//")) streamUrl = "https:" + streamUrl;
-
-            return [new StreamResult({
-                url: streamUrl,
-                source: "MixDrop",
-                quality: 1080,
-                headers: { "Referer": "https://mixdrop.co/" }
-            })];
-        } catch (_) { return []; }
-    }
-
-    // VOE — 'hls': '...' hoặc 'mp4': '...'
-    async function extractVoe(url) {
-        try {
-            const res = await http_get(url, {
-                "Referer": "https://voe.sx/",
-                "User-Agent": DOOD_UA
-            });
-            if (!res || !res.body) return [];
-            const html = res.body;
-
-            const hlsMatch = html.match(/'hls'\s*:\s*'([^']+)'/) || html.match(/"hls"\s*:\s*"([^"]+)"/);
-            const mp4Match = html.match(/'mp4'\s*:\s*'([^']+)'/) || html.match(/"mp4"\s*:\s*"([^"]+)"/);
-
-            const results = [];
-            if (hlsMatch) results.push(new StreamResult({
-                url: hlsMatch[1],
-                source: "VOE",
-                quality: 1080,
-                headers: { "Referer": "https://voe.sx/" }
-            }));
-            if (mp4Match) results.push(new StreamResult({
-                url: mp4Match[1],
-                source: "VOE MP4",
-                quality: 1080,
-                headers: { "Referer": "https://voe.sx/" }
-            }));
-            return results;
-        } catch (_) { return []; }
-    }
-
-    // StreamTape — innerHTML token obfuscation
-    async function extractStreamTape(url) {
-        try {
-            const res = await http_get(url, {
-                "Referer": "https://streamtape.com/",
-                "User-Agent": DOOD_UA
-            });
-            if (!res || !res.body) return [];
-            const html = res.body;
-
-            const match = html.match(/id="ideoooolink"[^>]*>(.*?)</)
-                || html.match(/\.innerHTML\s*=\s*"(\/\/[^"]+\.streamtape\.com[^"]+)"/)
-                || html.match(/document\.getElementById\('ideoooolink'\)[^=]*=[^"]*"([^"]+)"/);
-
-            if (!match) return [];
-            let streamUrl = match[1].replace(/\s/g, "");
-            if (!streamUrl.startsWith("http")) streamUrl = "https:" + streamUrl;
-
-            return [new StreamResult({
-                url: streamUrl,
-                source: "StreamTape",
-                quality: 720,
-                headers: { "Referer": "https://streamtape.com/" }
-            })];
-        } catch (_) { return []; }
-    }
-
-    // EmturbovidExtractor / javclan — file:"..." trong script
-    async function extractFilesim(url, sourceName) {
-        try {
-            const res = await http_get(url, { "User-Agent": DOOD_UA });
-            if (!res || !res.body) return [];
-            const match = res.body.match(/file\s*:\s*["']([^"']+)["']/);
-            if (!match) return [];
-            return [new StreamResult({
-                url: match[1],
-                source: sourceName || "FileMoon",
-                quality: 1080,
-                headers: {
-                    "Referer": url,
-                    "Origin": new URL(url).origin
-                }
-            })];
-        } catch (_) { return []; }
-    }
-
-    // Router chính — phân loại URL → đúng extractor
-    async function resolveVideoUrl(rawUrl) {
-        const u = rawUrl.toLowerCase();
-
-        // DoodStream family
-        if (u.includes("doply.net") || u.includes("doodstream") || u.includes("dood.")
-            || u.includes("myvidplay") || u.includes("d000d.com") || u.includes("ds2play")) {
-            return await extractDoodStream(rawUrl);
-        }
-        // VOE
-        if (u.includes("voe.sx")) return await extractVoe(rawUrl);
-        // StreamTape
-        if (u.includes("streamtape")) return await extractStreamTape(rawUrl);
-        // MixDrop
-        if (u.includes("mixdrop")) return await extractMixDrop(rawUrl);
-        // Streamwish family
-        if (u.includes("streamwish") || u.includes("swhoi") || u.includes("javsw")
-            || u.includes("streamhihi") || u.includes("wishfast") || u.includes("strwish")) {
-            return await extractStreamwish(rawUrl, "Streamwish");
-        }
-        // Vidhide family
-        if (u.includes("vidhide") || u.includes("javlion") || u.includes("javmoon")) {
-            return await extractVidhide(rawUrl, u.includes("javmoon") ? "FileMoon" : "Vidhide");
-        }
-        // FileMoon / Filesim / swhoi / javclan / emturbovid
-        if (u.includes("filemoon") || u.includes("emturbovid") || u.includes("javclan")) {
-            return await extractFilesim(rawUrl, u.includes("filemoon") ? "FileMoon" : "Stream");
-        }
-        // Javggvideo
-        if (u.includes("javggvideo")) return await extractJavggvideo(rawUrl);
-        // Maxstream
-        if (u.includes("maxstream")) return await extractMaxstream(rawUrl);
-
-        // Fallback: thử loadExtractor rồi push thẳng
-        if (typeof globalThis.loadExtractor === "function") {
-            const results = [];
-            try { await globalThis.loadExtractor(rawUrl, s => results.push(s)); } catch (_) {}
-            if (results.length) return results;
-        }
-        return [new StreamResult({
-            url: rawUrl,
-            source: "XXXParodyHD",
-            headers: { "Referer": BASE_URL }
-        })];
-    }
-
     async function loadStreams(url, cb) {
         try {
-            const res = await http_get(url, {
-                "Referer": BASE_URL,
-                "User-Agent": DOOD_UA
-            });
-
+            const res = await http_get(url, { "Referer": BASE_URL });
             if (!res || res.status !== 200) {
-                return cb({ success: false, errorCode: "STREAM_ERROR", message: "HTTP error: " + (res && res.status) });
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "Failed to load page" });
             }
-
             const html = res.body || "";
+
+            // Find all iframe links with id="#iframe"
+            // Matches: <a id="#iframe" href="...">  (CloudStream: div.Rtable1 a#\#iframe)
+            const iframeRegex = /<a[^>]+id="#iframe"[^>]+href="([^"]+)"/gi;
             const videoUrls = [];
-            const seen = new Set();
-
-            function addUrl(u) {
-                if (!u || seen.has(u) || isBadUrl(u)) return;
-                seen.add(u);
-                videoUrls.push(u);
-            }
-
-            // Ưu tiên 1: data-fl-source (URL embed gốc)
-            const flSourceRegex = /data-fl-source="(https?:\/\/[^"]+)"/gi;
-            let m;
-            while ((m = flSourceRegex.exec(html)) !== null) addUrl(m[1].trim());
-
-            // Ưu tiên 2: data-fl-url
-            const flUrlRegex = /data-fl-url="(https?:\/\/[^"]+)"/gi;
-            while ((m = flUrlRegex.exec(html)) !== null) addUrl(m[1].trim());
-
-            // Fallback: href của <a id="#iframe">
-            if (!videoUrls.length) {
-                const iframeRegex = /<a\s[^>]*id="#iframe"[^>]*>/gi;
-                while ((m = iframeRegex.exec(html)) !== null) {
-                    const hrefMatch = m[0].match(/href="(https?:\/\/[^"]+)"/i);
-                    if (hrefMatch) addUrl(hrefMatch[1].trim());
-                }
+            let iframeMatch;
+            while ((iframeMatch = iframeRegex.exec(html)) !== null) {
+                const videoUrl = iframeMatch[1].trim();
+                if (videoUrl) videoUrls.push(videoUrl);
             }
 
             if (!videoUrls.length) {
-                return cb({ success: false, errorCode: "STREAM_ERROR", message: "No stream links found" });
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "No streams found" });
             }
 
-            const allResults = await Promise.all(videoUrls.map(u => resolveVideoUrl(u)));
-            const flat = allResults.flat();
+            const streamResults = [];
+
+            // Use built-in extractor for each video URL (same as CloudStream's loadExtractor)
+            await Promise.allSettled(
+                videoUrls.map(async function (videoUrl) {
+                    if (typeof globalThis.loadExtractor === "function") {
+                        try {
+                            await globalThis.loadExtractor(videoUrl, function (stream) {
+                                streamResults.push(stream);
+                            });
+                        } catch (_) {
+                            // Fallback: push direct URL if extractor fails
+                            streamResults.push(new StreamResult({
+                                url: videoUrl,
+                                source: "XXXParodyHD",
+                                headers: { "Referer": BASE_URL }
+                            }));
+                        }
+                    } else {
+                        streamResults.push(new StreamResult({
+                            url: videoUrl,
+                            source: "XXXParodyHD",
+                            headers: { "Referer": BASE_URL }
+                        }));
+                    }
+                })
+            );
 
             // Deduplicate
             const deduped = [];
-            const seenUrls = new Set();
-            flat.forEach(function (item) {
-                if (!item || !item.url || seenUrls.has(item.url)) return;
-                seenUrls.add(item.url);
+            const seen = new Set();
+            streamResults.forEach(function (item) {
+                const key = item.url;
+                if (seen.has(key)) return;
+                seen.add(key);
                 deduped.push(item);
             });
-
-            if (!deduped.length) {
-                return cb({ success: false, errorCode: "STREAM_ERROR", message: "Could not extract any streams" });
-            }
 
             cb({ success: true, data: deduped });
         } catch (e) {
