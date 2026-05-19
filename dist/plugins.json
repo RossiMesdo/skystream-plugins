@@ -20,23 +20,22 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javHD.sky"
   },
   {
-    "packageName": "dev.byayzen.missav",
+    "packageName": "dev.lord.missav",
     "name": "MissAV",
     "version": 1,
     "baseUrl": "https://missav.live",
-    "description": "MissAV plugin for SkyStream",
+    "description": "MissAV - Japanese adult video streaming.",
     "authors": [
-      "ByAyzen"
+      "Lord"
     ],
     "languages": [
       "jp",
       "en"
     ],
     "categories": [
-      "NSFW",
-      "Movie"
+      "NSFW"
     ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.byayzen.missav.sky"
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.missav.sky"
   },
   {
     "packageName": "dev.lord.xxxparodyhd",
