@@ -320,6 +320,28 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.streamflix.sky"
   },
   {
+    "packageName": "com.faez.vlxx",
+    "name": "VLXX",
+    "version": 1,
+    "language": "vi",
+    "author": "FAEZ",
+    "description": "VLXX provider for SkyStream",
+    "baseUrl": "https://vlxx.moi",
+    "iconUrl": "https://vlxx.moi/favicon.ico",
+    "type": "movie",
+    "domains": [
+      {
+        "name": "vlxx.moi",
+        "url": "https://vlxx.moi"
+      },
+      {
+        "name": "vlxx.ms",
+        "url": "https://vlxx.ms"
+      }
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/com.faez.vlxx.sky"
+  },
+  {
     "packageName": "dev.lord.xchina",
     "name": "XChina",
     "version": 1,
