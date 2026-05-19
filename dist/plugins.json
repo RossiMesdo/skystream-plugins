@@ -40,7 +40,7 @@
   {
     "packageName": "dev.lord.xxxparodyhd",
     "name": "XXXParodyHD",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://xxxparodyhd.net",
     "description": "XXXParodyHD plugin",
     "authors": [
@@ -52,6 +52,7 @@
     "categories": [
       "Movie"
     ],
+    "isAdult": true,
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xxxparodyhd.sky"
   },
   {
