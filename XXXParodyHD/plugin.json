@@ -1,0 +1,16 @@
+{
+  "packageName": "dev.lord.xxxparodyhd",
+  "name": "XXXParodyHD",
+  "version": 1,
+  "baseUrl": "https://xxxparodyhd.net",
+  "description": "XXXParodyHD plugin",
+  "authors": [
+    "Lord"
+  ],
+  "languages": [
+    "en"
+  ],
+  "categories": [
+    "Movie"
+  ]
+}
