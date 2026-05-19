@@ -6,7 +6,7 @@
      * Language: Vietnamese | Type: NSFW
      */
 
-    const BASE_URL = (typeof manifest !== "undefined" && manifest?.baseUrl) || "https://xnhau.im";
+    const BASE_URL = (typeof manifest !== "undefined" && manifest?.baseUrl) || "https://xnhau.bet";
     const STORAGE_URL = "https://xnhaustorage.com";
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
     const HEADERS = { "User-Agent": UA, "Referer": BASE_URL };
