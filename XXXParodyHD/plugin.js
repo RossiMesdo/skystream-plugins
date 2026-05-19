@@ -281,29 +281,47 @@
                 "Referer": BASE_URL,
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
             });
+
             if (!res || res.status !== 200) {
-                return cb({ success: false, errorCode: "STREAM_ERROR", message: "Failed to load page" });
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "HTTP error: " + (res && res.status) });
             }
+
             const html = res.body || "";
 
-            // Cắt lấy phần "Watch Online" đến "Download" để tránh lấy link không liên quan
-            const watchSection = html.match(/Watch Online([\s\S]*?)### Download/i)
-                || html.match(/Watch Online([\s\S]*?)Stream in HD/i)
-                || html.match(/Watch Online([\s\S]*?)Rating/i);
-
-            const searchArea = watchSection ? watchSection[1] : html;
-
-            // Lấy tất cả href trong khu vực đó
+            // HTML thực tế có dạng:
+            // <a href="https://doply.net/e/xxx" rel="nofollow" id="#iframe">...</a>
+            // Đây chính xác là cấu trúc CloudStream parse bằng: document.select("div.Rtable1 a#\\#iframe")
             const videoUrls = [];
-            const hrefRegex = /href="(https?:\/\/[^"]+)"/gi;
+
+            // Method 1: tìm chính xác thẻ <a> có id="#iframe"
+            const iframeTagRegex = /<a[^>]+id="#iframe"[^>]*href="(https?:\/\/[^"]+)"|<a[^>]+href="(https?:\/\/[^"]+)"[^>]+id="#iframe"/gi;
             let m;
-            while ((m = hrefRegex.exec(searchArea)) !== null) {
-                const u = m[1].trim();
-                if (!u) continue;
-                if (isBadUrl(u)) continue;
-                // Ưu tiên link video host đã biết, còn không thì lấy hết https link có /e/ hoặc /#
-                if (isVideoHost(u) || /\/e\/[a-z0-9]+/i.test(u) || /#[a-z0-9]+$/i.test(u)) {
-                    videoUrls.push(u);
+            while ((m = iframeTagRegex.exec(html)) !== null) {
+                const u = (m[1] || m[2] || "").trim();
+                if (u && !isBadUrl(u)) videoUrls.push(u);
+            }
+
+            // Method 2: fallback — tìm trong div.Rtable1, lấy tất cả href không phải rác
+            if (!videoUrls.length) {
+                const rtableMatch = html.match(/<div[^>]+class="[^"]*Rtable1[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<div[^>]+class="[^"]*Rtable1/i);
+                const rtableArea = rtableMatch ? rtableMatch[1] : html;
+                const fallbackRegex = /href="(https?:\/\/[^"]+)"/gi;
+                while ((m = fallbackRegex.exec(rtableArea)) !== null) {
+                    const u = m[1].trim();
+                    if (u && !isBadUrl(u) && (isVideoHost(u) || /\/e\/[a-z0-9]+/i.test(u))) {
+                        videoUrls.push(u);
+                    }
+                }
+            }
+
+            // Method 3: fallback toàn trang — lấy href có /e/ hoặc host video đã biết
+            if (!videoUrls.length) {
+                const globalRegex = /href="(https?:\/\/[^"]+)"/gi;
+                while ((m = globalRegex.exec(html)) !== null) {
+                    const u = m[1].trim();
+                    if (u && !isBadUrl(u) && isVideoHost(u)) {
+                        videoUrls.push(u);
+                    }
                 }
             }
 
