@@ -1,16 +1,10 @@
 {
   "packageName": "dev.lord.xchina",
-  "name": "xchina",
+  "name": "XChina",
   "version": 1,
   "baseUrl": "https://en.xchina.co",
-  "description": "xchina plugin",
-  "authors": [
-    "Lord"
-  ],
-  "languages": [
-    "en"
-  ],
-  "categories": [
-    "Movie"
-  ]
+  "description": "XChina - Chinese adult content. VPN may be needed.",
+  "authors": ["Lord"],
+  "languages": ["en", "zh"],
+  "categories": ["NSFW"]
 }
