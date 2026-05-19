@@ -39,6 +39,23 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.byayzen.missav.sky"
   },
   {
+    "packageName": "dev.lord.xxxparodyhd",
+    "name": "XXXParodyHD",
+    "version": 1,
+    "baseUrl": "https://xxxparodyhd.net",
+    "description": "XXXParodyHD plugin",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xxxparodyhd.sky"
+  },
+  {
     "packageName": "dev.akash.stars.anichi",
     "name": "Anichi",
     "version": 4,
