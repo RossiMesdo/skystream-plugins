@@ -116,17 +116,23 @@
 
     // --- Core Functions ---
 
+    // Fetch one category page, supports pagination via page param
+    async function fetchCategoryPage(baseUrl, page) {
+        const url = page && page > 1 ? `${baseUrl}page/${page}/` : baseUrl;
+        const res = await http_get(url, { "Referer": BASE_URL });
+        if (!res || res.status !== 200) return [];
+        return parseItems(res.body || "");
+    }
+
     async function getHome(cb) {
         try {
             const homeData = {};
 
-            // Fetch first 4 categories in parallel, rest sequentially to avoid overloading
+            // Fetch first 4 categories in parallel
             const firstBatch = CATEGORIES.slice(0, 4);
             const results = await Promise.allSettled(
                 firstBatch.map(async function (cat) {
-                    const res = await http_get(cat.url, { "Referer": BASE_URL });
-                    if (!res || res.status !== 200) return { name: cat.name, items: [] };
-                    const items = parseItems(res.body || "");
+                    const items = await fetchCategoryPage(cat.url, 1);
                     return { name: cat.name, items };
                 })
             );
@@ -137,14 +143,11 @@
                 homeData[result.value.name] = result.value.items;
             });
 
-            // Fetch remaining categories
+            // Fetch remaining categories sequentially
             for (let i = 4; i < CATEGORIES.length; i++) {
                 try {
-                    const cat = CATEGORIES[i];
-                    const res = await http_get(cat.url, { "Referer": BASE_URL });
-                    if (!res || res.status !== 200) continue;
-                    const items = parseItems(res.body || "");
-                    if (items.length) homeData[cat.name] = items;
+                    const items = await fetchCategoryPage(CATEGORIES[i].url, 1);
+                    if (items.length) homeData[CATEGORIES[i].name] = items;
                 } catch (_) {}
             }
 
@@ -249,31 +252,58 @@
         }
     }
 
+    // Known bad/fallback domains — skip these
+    const SKIP_DOMAINS = ["localnews.click", "fallback.php"];
+
+    function isBadUrl(url) {
+        return SKIP_DOMAINS.some(function (d) { return url.includes(d); });
+    }
+
     async function loadStreams(url, cb) {
         try {
-            const res = await http_get(url, { "Referer": BASE_URL });
+            const res = await http_get(url, {
+                "Referer": BASE_URL,
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            });
             if (!res || res.status !== 200) {
                 return cb({ success: false, errorCode: "STREAM_ERROR", message: "Failed to load page" });
             }
             const html = res.body || "";
 
-            // Find all iframe links with id="#iframe"
-            // Matches: <a id="#iframe" href="...">  (CloudStream: div.Rtable1 a#\#iframe)
-            const iframeRegex = /<a[^>]+id="#iframe"[^>]+href="([^"]+)"/gi;
+            // Parse stream links from "Watch Online" section
+            // Structure: <a href="https://doply.net/e/..." title="...">DoodStream</a>
+            //            <a href="https://mixdrop.my/e/..." title="...">MixDrop</a>
+            //            <a href="https://voe.sx/e/..." title="...">VOE</a>
             const videoUrls = [];
-            let iframeMatch;
-            while ((iframeMatch = iframeRegex.exec(html)) !== null) {
-                const videoUrl = iframeMatch[1].trim();
-                if (videoUrl) videoUrls.push(videoUrl);
+
+            // Method 1: links with favicon img (the real stream links)
+            // <a href="URL" title="..."><img src="...favicons...">SourceName</a>
+            const faviconLinkRegex = /<a\s+href="(https?:\/\/[^"]+)"[^>]*>\s*<img[^>]+favicons[^>]*>[^<]*<\/a>/gi;
+            let m;
+            while ((m = faviconLinkRegex.exec(html)) !== null) {
+                const u = m[1].trim();
+                if (u && !isBadUrl(u)) videoUrls.push(u);
+            }
+
+            // Method 2: fallback — any https link inside "Watch Online" section
+            // before the rating block
+            if (!videoUrls.length) {
+                const watchSection = html.match(/Watch Online([\s\S]*?)Rating\s*\(/i);
+                if (watchSection) {
+                    const hrefRegex = /href="(https?:\/\/[^"]+)"/gi;
+                    while ((m = hrefRegex.exec(watchSection[1])) !== null) {
+                        const u = m[1].trim();
+                        if (u && !isBadUrl(u)) videoUrls.push(u);
+                    }
+                }
             }
 
             if (!videoUrls.length) {
-                return cb({ success: false, errorCode: "STREAM_ERROR", message: "No streams found" });
+                return cb({ success: false, errorCode: "STREAM_ERROR", message: "No streams found for this movie" });
             }
 
             const streamResults = [];
 
-            // Use built-in extractor for each video URL (same as CloudStream's loadExtractor)
             await Promise.allSettled(
                 videoUrls.map(async function (videoUrl) {
                     if (typeof globalThis.loadExtractor === "function") {
@@ -281,21 +311,15 @@
                             await globalThis.loadExtractor(videoUrl, function (stream) {
                                 streamResults.push(stream);
                             });
-                        } catch (_) {
-                            // Fallback: push direct URL if extractor fails
-                            streamResults.push(new StreamResult({
-                                url: videoUrl,
-                                source: "XXXParodyHD",
-                                headers: { "Referer": BASE_URL }
-                            }));
-                        }
-                    } else {
-                        streamResults.push(new StreamResult({
-                            url: videoUrl,
-                            source: "XXXParodyHD",
-                            headers: { "Referer": BASE_URL }
-                        }));
+                            return;
+                        } catch (_) {}
                     }
+                    // Fallback nếu extractor không nhận được host này
+                    streamResults.push(new StreamResult({
+                        url: videoUrl,
+                        source: "XXXParodyHD",
+                        headers: { "Referer": BASE_URL }
+                    }));
                 })
             );
 
@@ -303,9 +327,9 @@
             const deduped = [];
             const seen = new Set();
             streamResults.forEach(function (item) {
-                const key = item.url;
-                if (seen.has(key)) return;
-                seen.add(key);
+                if (!item || !item.url) return;
+                if (seen.has(item.url)) return;
+                seen.add(item.url);
                 deduped.push(item);
             });
 
