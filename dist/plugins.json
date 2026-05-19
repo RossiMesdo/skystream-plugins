@@ -392,6 +392,23 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xnhau.sky"
   },
   {
+    "packageName": "dev.lord.yanhh3d",
+    "name": "YanHH3D",
+    "version": 1,
+    "baseUrl": "https://yanhh3d.ee",
+    "description": "Hoạt hình 3D Trung Quốc Thuyết Minh VietSub 4K - Tu Tiên, Kiếm Hiệp, Tiên Hiệp...",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "vi"
+    ],
+    "categories": [
+      "Anime"
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.yanhh3d.sky"
+  },
+  {
     "packageName": "dev.akash.stars.yflix",
     "name": "Yflix",
     "version": 5,
