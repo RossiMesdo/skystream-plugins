@@ -324,16 +324,17 @@
     "name": "Vlxx",
     "version": 1,
     "baseUrl": "https://vlxx.moi",
-    "description": "Vlxx plugin",
+    "description": "Vlxx - Phim sex Việt Nam",
     "authors": [
       "Lord"
     ],
     "languages": [
-      "en"
+      "vi"
     ],
     "categories": [
-      "Movie"
+      "NSFW"
     ],
+    "isAdult": true,
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.vlxx.sky"
   },
   {
