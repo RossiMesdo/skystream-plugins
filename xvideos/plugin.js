@@ -7,11 +7,7 @@
 
     const MAIN_URL = (typeof manifest !== "undefined" && manifest?.baseUrl) || "https://www.xvideos.com";
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-    const HEADERS = {
-        "User-Agent": UA,
-        "Referer": MAIN_URL,
-        "Accept-Language": "en-US,en;q=0.9"
-    };
+    const HEADERS = { "User-Agent": UA, "Referer": MAIN_URL, "Accept-Language": "en-US,en;q=0.9" };
 
     const CATEGORIES = [
         { name: "Main Page",  url: MAIN_URL },
@@ -42,8 +38,6 @@
         { name: "Solo",       url: `${MAIN_URL}/c/solo/38/` },
     ];
 
-    // ==================== HELPERS ====================
-
     function fixUrl(url) {
         if (!url) return null;
         url = url.trim();
@@ -53,29 +47,26 @@
         return null;
     }
 
-    // Parse div.thumb-block — selector đúng theo cs3xxx
-    function parseThumbBlocks(html) {
+    // Dùng parseHtml + querySelector — chuẩn SkyStream, selector đúng theo cs3xxx
+    async function parseThumbBlocks(html) {
+        const doc = await parseHtml(html);
         const items = [];
         const seen = new Set();
 
-        const parts = html.split(/<div[^>]+class="[^"]*thumb-block[^"]*"[^>]*>/i);
-        for (let i = 1; i < parts.length; i++) {
-            const block = parts[i];
+        doc.querySelectorAll("div.thumb-block").forEach(el => {
+            const titleEl = el.querySelector("p.title a");
+            const title = titleEl ? titleEl.textContent.trim() : null;
 
-            // title: p.title a — text()
-            const titleMatch = block.match(/<p[^>]+class="[^"]*title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/i);
-            const title = titleMatch ? titleMatch[1].trim() : null;
+            const linkEl = el.querySelector("div.thumb a");
+            const href = linkEl ? fixUrl(linkEl.getAttribute("href")) : null;
 
-            // href: div.thumb a — attr("href")
-            const hrefMatch = block.match(/<div[^>]+class="[^"]*\bthumb\b[^"]*"[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"/i);
-            const href = hrefMatch ? fixUrl(hrefMatch[1]) : null;
-
-            if (!href || !title || seen.has(href)) continue;
+            if (!href || !title || seen.has(href)) return;
             seen.add(href);
 
-            // poster: div.thumb a img — attr("data-src")
-            const imgMatch = block.match(/<div[^>]+class="[^"]*\bthumb\b[^"]*"[^>]*>[\s\S]*?<img[^>]+data-src="([^"]+)"/i);
-            const poster = imgMatch ? fixUrl(imgMatch[1]) : null;
+            const imgEl = el.querySelector("div.thumb a img");
+            const poster = imgEl
+                ? fixUrl(imgEl.getAttribute("data-src") || imgEl.getAttribute("src"))
+                : null;
 
             items.push(new MultimediaItem({
                 title,
@@ -85,57 +76,26 @@
                 isAdult: true,
                 contentRating: "18+"
             }));
-        }
+        });
+
         return items;
     }
 
-    // Extract stream links từ script — đúng theo cs3xxx
-    function extractFromScript(scriptText) {
-        const links = [];
-
-        const hlsMatch = scriptText.match(/html5player\.setVideoHLS\('([^']+)'\)/i)
-            || scriptText.match(/\.setVideoHLS\('([^']+)'\)/i);
-        if (hlsMatch?.[1]) links.push({ url: hlsMatch[1].trim(), quality: "HLS" });
-
-        const highMatch = scriptText.match(/html5player\.setVideoUrlHigh\('([^']+)'\)/i)
-            || scriptText.match(/\.setVideoUrlHigh\('([^']+)'\)/i);
-        if (highMatch?.[1]) links.push({ url: highMatch[1].trim(), quality: "High" });
-
-        const lowMatch = scriptText.match(/html5player\.setVideoUrlLow\('([^']+)'\)/i)
-            || scriptText.match(/\.setVideoUrlLow\('([^']+)'\)/i);
-        if (lowMatch?.[1]) links.push({ url: lowMatch[1].trim(), quality: "Low" });
-
-        const contentUrlMatch = scriptText.match(/"contentUrl"\s*:\s*"([^"]+)"/i);
-        if (contentUrlMatch?.[1]) {
-            const u = contentUrlMatch[1].replace(/\\\//g, "/");
-            links.push({ url: u, quality: "Auto" });
-        }
-
-        return links;
-    }
-
-    // ==================== getHome ====================
-
+    // Fetch tuần tự — tránh bị block khi fetch 26 cái song song
     async function getHome(cb) {
         try {
             const homeData = {};
 
-            const results = await Promise.allSettled(
-                CATEGORIES.map(async (cat) => {
-                    try {
-                        const res = await http_get(cat.url, HEADERS);
-                        if (!res || !res.body) return { name: cat.name, items: [] };
-                        return { name: cat.name, items: parseThumbBlocks(res.body) };
-                    } catch (_) {
-                        return { name: cat.name, items: [] };
-                    }
-                })
-            );
-
-            results.forEach(r => {
-                if (r.status === "fulfilled" && r.value.items.length > 0)
-                    homeData[r.value.name] = r.value.items;
-            });
+            for (const cat of CATEGORIES) {
+                try {
+                    const res = await http_get(cat.url, HEADERS);
+                    if (!res || !res.body) continue;
+                    const items = await parseThumbBlocks(res.body);
+                    if (items.length > 0) homeData[cat.name] = items;
+                } catch (_) {
+                    continue;
+                }
+            }
 
             if (!Object.keys(homeData).length)
                 return cb({ success: false, errorCode: "HOME_ERROR", message: "No data found" });
@@ -146,20 +106,17 @@
         }
     }
 
-    // ==================== search ====================
-
     async function search(query, cb) {
         try {
             const url = `${MAIN_URL}?k=${encodeURIComponent(query)}`;
             const res = await http_get(url, HEADERS);
             if (!res || !res.body) return cb({ success: true, data: [] });
-            cb({ success: true, data: parseThumbBlocks(res.body) });
+            const items = await parseThumbBlocks(res.body);
+            cb({ success: true, data: items });
         } catch (e) {
             cb({ success: false, errorCode: "SEARCH_ERROR", message: e.message });
         }
     }
-
-    // ==================== load ====================
 
     async function load(url, cb) {
         try {
@@ -167,40 +124,30 @@
             if (!res || !res.body)
                 return cb({ success: false, errorCode: "LOAD_ERROR", message: "Empty response" });
 
-            const html = res.body;
+            const doc = await parseHtml(res.body);
             const isChannel = url.includes("/channels") || url.includes("/pornstars");
 
-            // Title
             let title;
             if (isChannel) {
-                title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim();
+                title = doc.querySelector("title")?.textContent?.trim();
             } else {
-                title = html.match(/<[^>]+class="[^"]*page-title[^"]*"[^>]*>([^<]+)</i)?.[1]?.trim();
+                title = doc.querySelector(".page-title")?.textContent?.trim();
             }
             title = title || "Unknown";
 
-            // Poster
             let poster;
             if (isChannel) {
-                poster = fixUrl(html.match(/<img[^>]+class="[^"]*profile-pic[^"]*"[^>]+data-src="([^"]+)"/i)?.[1]);
+                poster = fixUrl(doc.querySelector(".profile-pic img")?.getAttribute("data-src"));
             } else {
-                poster = fixUrl(
-                    html.match(/property="og:image"\s+content="([^"]+)"/i)?.[1] ||
-                    html.match(/content="([^"]+)"\s+property="og:image"/i)?.[1]
-                );
+                poster = fixUrl(doc.querySelector("meta[property='og:image']")?.getAttribute("content"));
             }
 
-            // Tags — cs3xxx: .video-tags-list li a
             const tags = [];
-            const tagsSection = html.match(/<ul[^>]+class="[^"]*video-tags-list[^"]*"[^>]*>([\s\S]*?)<\/ul>/i)?.[1] || "";
-            const tagLinkRegex = /<a[^>]*>([^<]+)<\/a>/gi;
-            let tm;
-            while ((tm = tagLinkRegex.exec(tagsSection)) !== null) {
-                const t = tm[1].trim().replace(/,\s*$/, "");
+            doc.querySelectorAll(".video-tags-list li a").forEach(a => {
+                const t = a.textContent.trim().replace(/,\s*$/, "");
                 if (t && !tags.includes(t)) tags.push(t);
-            }
+            });
 
-            // Episode bắt buộc để nút Watch không bị xám
             const episode = new Episode({
                 name: title,
                 url: url,
@@ -228,34 +175,54 @@
         }
     }
 
-    // ==================== loadStreams ====================
-    // Đúng theo cs3xxx: tìm script chứa "HTML5Player", extract setVideoHLS / setVideoUrlHigh / setVideoUrlLow
-
     async function loadStreams(url, cb) {
         try {
             const res = await http_get(url, HEADERS);
             if (!res || !res.body)
                 return cb({ success: false, errorCode: "STREAM_ERROR", message: "Failed to fetch page" });
 
-            const html = res.body;
+            const doc = await parseHtml(res.body);
             const streams = [];
 
-            const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-            let sm;
-            while ((sm = scriptRegex.exec(html)) !== null) {
-                const scriptText = sm[1];
-                if (!scriptText.includes("HTML5Player") && !scriptText.includes("html5player")) continue;
+            doc.querySelectorAll("script").forEach(script => {
+                const text = script.textContent || "";
+                if (!text.includes("html5player") && !text.includes("HTML5Player")) return;
 
-                for (const link of extractFromScript(scriptText)) {
-                    if (!link.url?.startsWith("http")) continue;
-                    streams.push(new StreamResult({
-                        url: link.url,
-                        source: `XVideos ${link.quality}`,
-                        quality: link.quality,
-                        headers: { "Referer": MAIN_URL, "User-Agent": UA }
-                    }));
-                }
-            }
+                const hlsMatch = text.match(/html5player\.setVideoHLS\('([^']+)'\)/i)
+                    || text.match(/\.setVideoHLS\('([^']+)'\)/i);
+                if (hlsMatch?.[1]) streams.push(new StreamResult({
+                    url: hlsMatch[1].trim(),
+                    source: "XVideos HLS",
+                    quality: "HLS",
+                    headers: { "Referer": MAIN_URL, "User-Agent": UA }
+                }));
+
+                const highMatch = text.match(/html5player\.setVideoUrlHigh\('([^']+)'\)/i)
+                    || text.match(/\.setVideoUrlHigh\('([^']+)'\)/i);
+                if (highMatch?.[1]) streams.push(new StreamResult({
+                    url: highMatch[1].trim(),
+                    source: "XVideos High",
+                    quality: "High",
+                    headers: { "Referer": MAIN_URL, "User-Agent": UA }
+                }));
+
+                const lowMatch = text.match(/html5player\.setVideoUrlLow\('([^']+)'\)/i)
+                    || text.match(/\.setVideoUrlLow\('([^']+)'\)/i);
+                if (lowMatch?.[1]) streams.push(new StreamResult({
+                    url: lowMatch[1].trim(),
+                    source: "XVideos Low",
+                    quality: "Low",
+                    headers: { "Referer": MAIN_URL, "User-Agent": UA }
+                }));
+
+                const contentUrlMatch = text.match(/"contentUrl"\s*:\s*"([^"]+)"/i);
+                if (contentUrlMatch?.[1]) streams.push(new StreamResult({
+                    url: contentUrlMatch[1].replace(/\\\//g, "/"),
+                    source: "XVideos Auto",
+                    quality: "Auto",
+                    headers: { "Referer": MAIN_URL, "User-Agent": UA }
+                }));
+            });
 
             if (!streams.length)
                 return cb({ success: false, errorCode: "STREAM_ERROR", message: "No streams found" });
