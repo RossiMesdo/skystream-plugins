@@ -3,31 +3,13 @@
      * Vlxx Plugin for SkyStream
      * Converted from CloudStream (Kotlin) by Lord
      * Original author: jacekun
-     * Language: Vietnamese | Type: NSFW
      */
 
     const BASE_URL = (typeof manifest !== "undefined" && manifest?.baseUrl) || "https://vlxx.moi";
-    const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
     const HEADERS = {
-        "User-Agent": UA,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0",
         "Referer": BASE_URL + "/"
     };
-
-    // Các category từ nav menu của vlxx
-    const CATEGORIES = [
-        { name: "Việt Nam",     url: `${BASE_URL}/category/viet-nam/` },
-        { name: "Châu Á",       url: `${BASE_URL}/category/chau-a/` },
-        { name: "Âu Mỹ",        url: `${BASE_URL}/category/au-my/` },
-        { name: "Loạn Luân",    url: `${BASE_URL}/category/loan-luan/` },
-        { name: "Hentai",       url: `${BASE_URL}/category/hoat-hinh/` },
-        { name: "Học Sinh",     url: `${BASE_URL}/category/hoc-sinh/` },
-        { name: "Đồng Tính",    url: `${BASE_URL}/category/dong-tinh/` },
-        { name: "BDSM",         url: `${BASE_URL}/category/bdsm/` },
-        { name: "Ngoại Tình",   url: `${BASE_URL}/category/ngoai-tinh/` },
-        { name: "Massage",      url: `${BASE_URL}/category/massage/` },
-        { name: "3Some",        url: `${BASE_URL}/category/3some/` },
-        { name: "Phim Dài",     url: `${BASE_URL}/category/phim-dai/` },
-    ];
 
     // ==================== HELPERS ====================
 
@@ -44,36 +26,73 @@
         return (html || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
     }
 
-    // Parse danh sách video từ HTML — selector: div.video-item
+    // Đúng theo Kotlin: pathSplits[size - 2]
+    // URL dạng /xem-phim/ten-video/ → split("/") → ["","xem-phim","ten-video",""] → size-2 = "ten-video"
+    function extractIdFromUrl(url) {
+        const parts = url.split("/");
+        return parts[parts.length - 2] || "";
+    }
+
+    // Đúng theo getParamFromJS trong Kotlin:
+    // key = "var opts = {\r\n\t\t\t\t\t\tsources:"  keyEnd = "}]"
+    function getParamFromJS(str) {
+        try {
+            const key    = "sources:";
+            const keyEnd = "}]";
+
+            const firstIndex = str.indexOf(key);
+            if (firstIndex === -1) return null;
+
+            const temp      = str.substring(firstIndex + key.length);
+            const lastIndex = temp.indexOf(keyEnd);
+            if (lastIndex === -1) return null;
+
+            const raw = temp.substring(0, lastIndex + keyEnd.length);
+
+            // Unescape y chang Kotlin
+            return raw
+                .replace(/\\r/g, "")
+                .replace(/\\t/g, "")
+                .replace(/\\"/g, '"')
+                .replace(/\\\\\//g, "/")
+                .replace(/\\n/g, "");
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // Parse video items: selector "div#video-list > div.video-item"
     function parseVideoItems(html) {
         const items = [];
-        const seen = new Set();
+        const seen  = new Set();
 
-        const blockRegex = /<div[^>]+class="[^"]*\bvideo-item\b[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
-        let block;
-        while ((block = blockRegex.exec(html)) !== null) {
-            const inner = block[0];
+        // Match từng div.video-item
+        const re = /<div[^>]+class="[^"]*\bvideo-item\b[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
+        let m;
+        while ((m = re.exec(html)) !== null) {
+            const block = m[0];
 
-            const aMatch = inner.match(/<a[^>]+href="([^"]+)"/i);
-            const href = aMatch ? fixUrl(aMatch[1]) : null;
+            // firstA href
+            const aMatch = block.match(/<a[^>]+href="([^"]+)"/i);
+            const href   = aMatch ? fixUrl(aMatch[1]) : null;
             if (!href || seen.has(href)) continue;
             seen.add(href);
 
-            // Poster: ưu tiên data-original → src
-            const origMatch = inner.match(/data-original="([^"]+)"/i);
-            const srcMatch  = inner.match(/<img[^>]+src="([^"]+)"/i);
-            const poster    = fixUrl(origMatch?.[1] || srcMatch?.[1]);
+            // img data-original (đúng theo Kotlin: it.selectFirst("img")?.attr("data-original"))
+            const imgMatch = block.match(/<img[^>]+data-original="([^"]+)"/i)
+                || block.match(/<img[^>]+src="([^"]+)"/i);
+            const poster = imgMatch ? fixUrl(imgMatch[1]) : null;
 
-            // Title từ div.video-name
-            const nameMatch = inner.match(/<div[^>]+class="[^"]*\bvideo-name\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-            const title     = nameMatch ? stripTags(nameMatch[1]) : "Unknown";
-            if (!title || !href) continue;
+            // div.video-name text
+            const nameMatch = block.match(/<div[^>]+class="[^"]*\bvideo-name\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+            const title = nameMatch ? stripTags(nameMatch[1]) : stripTags(block);
+            if (!title) continue;
 
             items.push(new MultimediaItem({
                 title,
-                url: href,
+                url:     href,
                 posterUrl: poster,
-                type: "movie",
+                type:    "movie",
                 isAdult: true,
                 contentRating: "18+"
             }));
@@ -81,131 +100,67 @@
         return items;
     }
 
-    // Đúng logic Kotlin: pathSplits[size - 2] — segment áp cuối
-    // Ví dụ: https://vlxx.moi/xem-phim/ten-phim-12345/ -> "ten-phim-12345"
-    function extractIdFromUrl(url) {
-        const clean = url.replace(/\/$/, "");
-        const parts = clean.split("/");
-        return parts[parts.length - 1] || parts[parts.length - 2] || "";
-    }
-
-    // Parse sources từ JS response của ajax.php
-    // var opts = {\r\n\t\t\t\t\t\tsources: [{file:"...", label:"..."}]}
-    function parseSourcesFromJs(text) {
-        const streams = [];
-        try {
-            const marker   = "sources:";
-            const start    = text.indexOf(marker);
-            if (start === -1) return streams;
-
-            const arrStart = text.indexOf("[", start);
-            if (arrStart === -1) return streams;
-            const arrEnd   = text.indexOf("]", arrStart);
-            if (arrEnd === -1) return streams;
-
-            let raw = text.substring(arrStart, arrEnd + 1)
-                .replace(/\\r/g, "")
-                .replace(/\\t/g, "")
-                .replace(/\\n/g, "")
-                .replace(/\\"/g, '"')
-                .replace(/\\\\\//g, "/")
-                .replace(/\\\//g, "/");
-
-            const objRegex = /\{([^}]+)\}/g;
-            let obj;
-            while ((obj = objRegex.exec(raw)) !== null) {
-                const inner     = obj[1];
-                const fileMatch = inner.match(/['"']?file['"']?\s*:\s*['"]([^'"]+)['"]/);
-                const labelMatch= inner.match(/['"']?label['"']?\s*:\s*['"]([^'"]+)['"]/);
-                if (fileMatch) {
-                    const fileUrl = fileMatch[1].trim();
-                    const label   = labelMatch ? labelMatch[1].trim() : "Auto";
-                    if (fileUrl) streams.push({ url: fileUrl, label });
-                }
-            }
-        } catch (e) {}
-        return streams;
-    }
-
-    // Fetch 1 trang category, trả về items[]
-    async function fetchCategoryPage(pageUrl) {
-        try {
-            const res  = await http_get(pageUrl, HEADERS);
-            const html = res.body || "";
-            return parseVideoItems(html);
-        } catch (e) {
-            return [];
-        }
-    }
-
     // ==================== CORE FUNCTIONS ====================
 
+    // getMainPage: selector "div#video-list > div.video-item", 1 section "Homepage"
     async function getHome(cb) {
         try {
-            const data = {};
+            const res  = await http_get(BASE_URL, HEADERS);
+            const html = res.body || "";
 
-            // Fetch trang chủ → section "Trending"
-            const homeRes  = await http_get(BASE_URL, HEADERS);
-            const homeHtml = homeRes.body || "";
-            const trending = parseVideoItems(homeHtml);
-            if (trending.length) data["Trending"] = trending;
+            const items = parseVideoItems(html);
 
-            // Fetch song song tất cả categories
-            const results = await Promise.allSettled(
-                CATEGORIES.map(cat => fetchCategoryPage(cat.url))
-            );
-
-            results.forEach((res, i) => {
-                if (res.status === "fulfilled" && res.value.length) {
-                    data[CATEGORIES[i].name] = res.value;
-                }
-            });
-
-            if (!Object.keys(data).length) {
+            if (!items.length) {
                 return cb({ success: false, errorCode: "HOME_ERROR", message: "No videos found" });
             }
 
-            cb({ success: true, data });
+            cb({ success: true, data: { "Homepage": items } });
         } catch (e) {
             cb({ success: false, errorCode: "HOME_ERROR", message: e.message });
         }
     }
 
+    // search: GET /search/{query}/, selector "#container .box .video-list"
     async function search(query, cb) {
         try {
-            const url = `${BASE_URL}/search/${encodeURIComponent(query)}/`;
+            const url  = `${BASE_URL}/search/${encodeURIComponent(query)}/`;
             const res  = await http_get(url, HEADERS);
             const html = res.body || "";
 
             const items = [];
             const seen  = new Set();
 
-            // Selector: #container .box .video-list
-            const containerMatch = html.match(/<div[^>]+id="container"[^>]*>([\s\S]*)/i);
-            const containerHtml  = containerMatch ? containerMatch[0] : html;
+            // "#container .box .video-list"
+            // Tìm từng div.video-list bên trong #container
+            const containerM = html.match(/<div[^>]+id="container"[^>]*>([\s\S]*)/i);
+            const scope = containerM ? containerM[0] : html;
 
-            const blockRegex = /<div[^>]+class="[^"]*\bvideo-list\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-            let block;
-            while ((block = blockRegex.exec(containerHtml)) !== null) {
-                const inner = block[0];
+            const re = /<div[^>]+class="[^"]*\bvideo-list\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+            let m;
+            while ((m = re.exec(scope)) !== null) {
+                const block = m[0];
 
-                const aMatch = inner.match(/<a[^>]+href="([^"]+)"/i);
+                // a href
+                const aMatch = block.match(/<a[^>]+href="([^"]+)"/i);
                 const href   = aMatch ? fixUrl(aMatch[1]) : null;
                 if (!href || seen.has(href)) continue;
                 seen.add(href);
 
-                const imgMatch = inner.match(/class="[^"]*\bvideo-image\b[^"]*"[^>]+src="([^"]+)"/i)
-                    || inner.match(/<img[^>]+src="([^"]+)"/i);
+                // .video-image src (đúng theo Kotlin: it.select(".video-image").attr("src"))
+                const imgMatch = block.match(/class="[^"]*\bvideo-image\b[^"]*"[^>]*src="([^"]+)"/i)
+                    || block.match(/src="([^"]+)"[^>]*class="[^"]*\bvideo-image\b[^"]*"/i);
                 const poster = imgMatch ? fixUrl(imgMatch[1]) : null;
 
-                const nameMatch = inner.match(/<div[^>]+class="[^"]*\bvideo-name\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-                const title  = nameMatch ? stripTags(nameMatch[1]) : "Unknown";
+                // .video-name text
+                const nameMatch = block.match(/<[^>]+class="[^"]*\bvideo-name\b[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i);
+                const title = nameMatch ? stripTags(nameMatch[1]) : "";
+                if (!title) continue;
 
                 items.push(new MultimediaItem({
                     title,
-                    url: href,
+                    url:     href,
                     posterUrl: poster,
-                    type: "movie",
+                    type:    "movie",
                     isAdult: true,
                     contentRating: "18+"
                 }));
@@ -217,38 +172,34 @@
         }
     }
 
+    // load: "div#container" -> h2 (title) + div.video-description (plot)
+    // poster = null (đúng theo Kotlin: val poster = null //No image on load page)
     async function load(url, cb) {
         try {
             const res  = await http_get(url, HEADERS);
             const html = res.body || "";
 
-            // #container -> h2 (title) + div.video-description (plot)
-            const containerMatch = html.match(/<div[^>]+id="container"[^>]*>([\s\S]*)/i);
-            const containerHtml  = containerMatch ? containerMatch[0] : html;
+            const containerM = html.match(/<div[^>]+id="container"[^>]*>([\s\S]*)/i);
+            const scope = containerM ? containerM[0] : html;
 
-            const h2Match    = containerHtml.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-            const title      = h2Match ? stripTags(h2Match[1]) : "No Title";
+            const h2M   = scope.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+            const title = h2M ? stripTags(h2M[1]) : "No Title";
 
-            const descMatch  = containerHtml.match(/<div[^>]+class="[^"]*\bvideo-description\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-            const description= descMatch ? stripTags(descMatch[1]) : "";
-
-            // Poster từ og:image nếu có
-            const ogMatch    = html.match(/property="og:image"\s+content="([^"]+)"/i)
-                || html.match(/content="([^"]+)"\s+property="og:image"/i);
-            const posterUrl  = ogMatch ? fixUrl(ogMatch[1]) : null;
+            const descM = scope.match(/<div[^>]+class="[^"]*\bvideo-description\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+            const description = descM ? stripTags(descM[1]) : "";
 
             // Episode bắt buộc để nút Watch active
             const episode = new Episode({
-                name:   title,
-                url:    url,
-                season: 1,
-                episode:1
+                name:    title,
+                url:     url,
+                season:  1,
+                episode: 1
             });
 
             const item = new MultimediaItem({
                 title,
                 url,
-                posterUrl,
+                posterUrl:   null, // No image on load page
                 type:        "movie",
                 description,
                 episodes:    [episode],
@@ -262,32 +213,55 @@
         }
     }
 
+    // loadStreams: POST /ajax.php với id = pathSplits[size-2]
+    // parse response bằng getParamFromJS giống Kotlin
     async function loadStreams(url, cb) {
         try {
-            // Đúng logic Kotlin: pathSplits[size - 2] — segment áp cuối URL
             const id = extractIdFromUrl(url);
-            if (!id) return cb({ success: false, message: "Cannot extract video ID from URL" });
+            if (!id) return cb({ success: false, message: "Cannot extract ID from URL" });
 
-            const postHeaders = {
-                ...HEADERS,
-                "Content-Type":     "application/x-www-form-urlencoded",
-                "X-Requested-With": "XMLHttpRequest"
-            };
-
-            const body = `vlxx_server=1&id=${encodeURIComponent(id)}&server=1`;
-            const res  = await http_post(`${BASE_URL}/ajax.php`, body, postHeaders);
+            const res = await http_post(
+                `${BASE_URL}/ajax.php`,
+                `vlxx_server=1&id=${encodeURIComponent(id)}&server=1`,
+                {
+                    ...HEADERS,
+                    "Content-Type":     "application/x-www-form-urlencoded",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            );
             const text = res.body || "";
 
-            const sources = parseSourcesFromJs(text);
-            if (!sources.length) {
-                return cb({ success: false, message: "No stream sources found" });
+            const json = getParamFromJS(text);
+            if (!json) return cb({ success: false, message: "No stream data in response" });
+
+            // Parse JSON array [{file, type, label}]
+            let sources = [];
+            try {
+                // json là dạng "[{file:\"...\",label:\"...\"}]"
+                sources = JSON.parse(json);
+            } catch (e) {
+                // fallback: parse thủ công
+                const re = /\{[^}]+\}/g;
+                let m;
+                while ((m = re.exec(json)) !== null) {
+                    try {
+                        const o = JSON.parse(m[0]);
+                        if (o.file) sources.push(o);
+                    } catch (_) {}
+                }
             }
 
-            const streams = sources.map(s => new StreamResult({
-                url:     s.url,
-                quality: s.label || "Auto",
-                headers: { "Referer": BASE_URL + "/" }
-            }));
+            if (!sources.length) {
+                return cb({ success: false, message: "No sources found" });
+            }
+
+            const streams = sources
+                .filter(s => s.file)
+                .map(s => new StreamResult({
+                    url:     s.file,
+                    quality: s.label || "Auto",
+                    headers: { "Referer": BASE_URL + "/" }
+                }));
 
             cb({ success: true, data: streams });
         } catch (e) {
@@ -295,8 +269,8 @@
         }
     }
 
-    globalThis.getHome     = getHome;
-    globalThis.search      = search;
-    globalThis.load        = load;
-    globalThis.loadStreams  = loadStreams;
+    globalThis.getHome    = getHome;
+    globalThis.search     = search;
+    globalThis.load       = load;
+    globalThis.loadStreams = loadStreams;
 })();
