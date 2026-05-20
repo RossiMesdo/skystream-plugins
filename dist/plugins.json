@@ -392,6 +392,38 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xnhau.sky"
   },
   {
+    "packageName": "dev.lord.xvideos",
+    "name": "XVideos",
+    "version": 1,
+    "baseUrl": "https://www.xvideos.com",
+    "description": "XVideos - Adult video streaming with full categories.",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "NSFW"
+    ],
+    "isAdult": true,
+    "domains": [
+      {
+        "name": "xvideos.com",
+        "url": "https://www.xvideos.com"
+      },
+      {
+        "name": "xvv1deos.com",
+        "url": "https://www.xvv1deos.com"
+      },
+      {
+        "name": "xvideos2.com",
+        "url": "https://www.xvideos2.com"
+      }
+    ],
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xvideos.sky"
+  },
+  {
     "packageName": "dev.lord.yanhh3d",
     "name": "YanHH3D",
     "version": 1,
