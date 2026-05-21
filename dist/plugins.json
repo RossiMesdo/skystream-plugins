@@ -40,7 +40,7 @@
   {
     "packageName": "dev.lord.missav",
     "name": "MissAV",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://missav.live",
     "description": "MissAV - Japanese Adult Video with subtitles",
     "authors": [
