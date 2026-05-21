@@ -1,10 +1,11 @@
 {
   "packageName": "dev.lord.missav",
   "name": "MissAV",
-  "version": 1,
+  "version": 2,
   "baseUrl": "https://missav.live",
-  "description": "MissAV - Japanese adult video streaming.",
+  "description": "MissAV - Japanese Adult Video with subtitles",
   "authors": ["Lord"],
-  "languages": ["jp", "en"],
-  "categories": ["NSFW"]
+  "languages": ["ja", "en"],
+  "categories": ["Movie"],
+  "isAdult": true
 }
