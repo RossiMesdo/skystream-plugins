@@ -56,6 +56,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.missav.sky"
   },
   {
+    "packageName": "dev.lord.pornhub",
+    "name": "PornHub",
+    "version": 1,
+    "baseUrl": "https://www.pornhub.com",
+    "description": "PornHub - World's largest adult video site",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.pornhub.sky"
+  },
+  {
     "packageName": "dev.lord.xxxparodyhd",
     "name": "XXXParodyHD",
     "version": 2,
