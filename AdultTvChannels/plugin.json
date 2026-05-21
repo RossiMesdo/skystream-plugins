@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.adulttvchannels",
+  "name": "AdultTvChannels",
+  "version": 1,
+  "baseUrl": "https://adult-tv-channels.com",
+  "description": "Adult TV Channels - Live adult TV channels stream",
+  "authors": ["Lord"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
