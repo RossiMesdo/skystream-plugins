@@ -1,5 +1,23 @@
 [
   {
+    "packageName": "dev.lord.adulttvchannels",
+    "name": "AdultTvChannels",
+    "version": 1,
+    "baseUrl": "https://adult-tv-channels.com",
+    "description": "Adult TV Channels - Live adult TV channels stream",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.adulttvchannels.sky"
+  },
+  {
     "packageName": "dev.lord.javHD",
     "name": "JavHD",
     "version": 1,
