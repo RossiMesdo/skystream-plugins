@@ -38,12 +38,6 @@
         { name: "Naughty 0930",         url: `${BASE_URL}/dm22/en/naughty0930` },
     ];
 
-    // CloudStream: có ? thì &page=N, không thì ?page=N
-    function buildPageUrl(base, page) {
-        if (page <= 1) return base;
-        return base.includes("?") ? `${base}&page=${page}` : `${base}?page=${page}`;
-    }
-
     function fixUrl(u) {
         if (!u) return "";
         if (u.startsWith("//")) return "https:" + u;
@@ -51,22 +45,30 @@
         return u;
     }
 
-    // CloudStream: select "div.grid.grid-cols-2 > div, div.thumbnail.group"
+    // CloudStream: có ? thì &page=N, không thì ?page=N
+    function buildPageUrl(base, page) {
+        if (page <= 1) return base;
+        return base.includes("?") ? `${base}&page=${page}` : `${base}?page=${page}`;
+    }
+
+    // CloudStream selector: "div.grid.grid-cols-2 > div, div.thumbnail.group"
     function parseItems(doc) {
         const items = [];
         const seen = new Set();
+
         doc.querySelectorAll("div.grid.grid-cols-2 > div, div.thumbnail.group").forEach(el => {
             const link = el.querySelector("a[href*='/en/'], a[href*='/dm']");
             if (!link) return;
-            const url = fixUrl(link.getAttribute("href") || "");
-            if (!url) return;
 
-            // CloudStream: title từ "div.my-2 a, div.title a, a.text-secondary", fallback link text
+            const url = fixUrl(link.getAttribute("href") || "");
+            if (!url || seen.has(url)) return;
+
+            // CloudStream: title từ div.my-2 a, div.title a, a.text-secondary
             const titleEl = el.querySelector("div.my-2 a, div.title a, a.text-secondary");
             let title = (titleEl?.textContent || link.textContent || "").trim();
             if (!title || BLACKLIST.includes(title.toLowerCase())) return;
 
-            // CloudStream: đánh dấu uncensored
+            // CloudStream: prefix "Uncensored - " nếu là uncensored leak
             const isUncensored = /uncensored[-_ ]?leak/i.test(
                 (link.getAttribute("alt") || "") + (link.getAttribute("href") || "") + el.innerHTML
             );
@@ -74,16 +76,15 @@
                 title = `Uncensored - ${title}`;
             }
 
-            // CloudStream: poster từ data-src trước, fallback src — skip nếu không có poster
+            // CloudStream: poster từ data-src, fallback src — skip nếu không có
             const img = el.querySelector("img");
             const poster = img?.getAttribute("data-src") || img?.getAttribute("src") || "";
             if (!poster) return;
 
-            if (seen.has(url)) return;
             seen.add(url);
-
             items.push(new MultimediaItem({ title, url, posterUrl: poster, type: "movie" }));
         });
+
         return items;
     }
 
@@ -107,8 +108,7 @@
 
     async function search(query, cb) {
         try {
-            const url = `${BASE_URL}/en/search/${encodeURIComponent(query)}`;
-            const res = await http_get(url, HEADERS);
+            const res = await http_get(`${BASE_URL}/en/search/${encodeURIComponent(query)}`, HEADERS);
             if (!res || res.status !== 200) return cb({ success: true, data: [] });
             const doc = await parseHtml(res.body);
             cb({ success: true, data: parseItems(doc) });
@@ -123,7 +123,7 @@
             if (!res || res.status !== 200) return cb({ success: false, errorCode: "SITE_OFFLINE" });
             const doc = await parseHtml(res.body);
 
-            // CloudStream: title từ h1.text-base
+            // CloudStream: h1.text-base
             const title = doc.querySelector("h1.text-base")?.textContent?.trim();
             if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "No title" });
 
@@ -132,8 +132,8 @@
             // CloudStream: year từ <time>
             const year = parseInt(doc.querySelector("time")?.textContent?.trim()?.split("-")[0]) || undefined;
 
-            // CloudStream: tags từ div.text-secondary có chứa "genre"
-            // actors từ div.text-secondary có chứa "actress"
+            // CloudStream: tags từ div.text-secondary chứa "genre"
+            // cast từ div.text-secondary chứa "actress"
             const tags = [];
             const cast = [];
             doc.querySelectorAll("div.text-secondary").forEach(div => {
@@ -184,12 +184,9 @@
             if (!res || !res.body) return cb({ success: true, data: [] });
 
             const body = res.body;
-
-            // CloudStream: getAndUnpack rồi tìm UUID /[a-f0-9-]{36}/
-            // Pattern UUID chuẩn: 8-4-4-4-12
             const UUID_RE = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/;
 
-            // Thử tìm trực tiếp trong surrit.com URL (đôi khi không cần unpack)
+            // Tầng 1: surrit.com URL trực tiếp trong source
             const surritMatch = body.match(/surrit\.com\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/);
             if (surritMatch) {
                 return cb({
@@ -202,16 +199,16 @@
                 });
             }
 
-            // Thử unpack P.A.C.K.E.R nếu có (CloudStream dùng getAndUnpack)
+            // Tầng 2: unpack P.A.C.K.E.R rồi tìm UUID (đúng theo CloudStream)
             if (typeof getAndUnpack === "function") {
                 try {
                     const unpacked = getAndUnpack(body) || "";
-                    const uuidMatch = UUID_RE.exec(unpacked);
-                    if (uuidMatch) {
+                    const m = UUID_RE.exec(unpacked);
+                    if (m) {
                         return cb({
                             success: true,
                             data: [new StreamResult({
-                                url: `https://surrit.com/${uuidMatch[1]}/playlist.m3u8`,
+                                url: `https://surrit.com/${m[1]}/playlist.m3u8`,
                                 source: "MissAV",
                                 headers: { "Referer": BASE_URL + "/" }
                             })]
@@ -220,13 +217,13 @@
                 } catch (e) {}
             }
 
-            // Fallback: tìm UUID bất kỳ trong raw body
-            const uuidMatch = UUID_RE.exec(body);
-            if (uuidMatch) {
+            // Tầng 3: UUID bất kỳ trong raw body
+            const m = UUID_RE.exec(body);
+            if (m) {
                 return cb({
                     success: true,
                     data: [new StreamResult({
-                        url: `https://surrit.com/${uuidMatch[1]}/playlist.m3u8`,
+                        url: `https://surrit.com/${m[1]}/playlist.m3u8`,
                         source: "MissAV",
                         headers: { "Referer": BASE_URL + "/" }
                     })]
