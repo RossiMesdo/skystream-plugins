@@ -56,6 +56,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javHD.sky"
   },
   {
+    "packageName": "dev.lord.javtiful",
+    "name": "Javtiful",
+    "version": 1,
+    "baseUrl": "https://javtiful.com",
+    "description": "Javtiful - JAV streaming site",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javtiful.sky"
+  },
+  {
     "packageName": "dev.lord.missav",
     "name": "MissAV",
     "version": 4,
