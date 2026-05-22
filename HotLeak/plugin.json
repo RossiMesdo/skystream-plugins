@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.hotleak",
+  "name": "HotLeak",
+  "version": 1,
+  "baseUrl": "https://hotleak.vip",
+  "description": "HotLeak - OnlyFans & Creator leaks",
+  "authors": ["Lord"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
