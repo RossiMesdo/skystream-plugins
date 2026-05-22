@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.cosxplay",
+  "name": "CosXPlay",
+  "version": 1,
+  "baseUrl": "https://cosxplay.com",
+  "description": "CosXPlay - Cosplay adult videos",
+  "authors": ["Lord"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
