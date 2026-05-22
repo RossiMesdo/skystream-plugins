@@ -1,5 +1,23 @@
 [
   {
+    "packageName": "dev.lord.18eu",
+    "name": "18EU",
+    "version": 1,
+    "baseUrl": "https://18eu.net",
+    "description": "18EU - European adult movies and TV series",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.18eu.sky"
+  },
+  {
     "packageName": "dev.lord.adulttvchannels",
     "name": "AdultTvChannels",
     "version": 1,
