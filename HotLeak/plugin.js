@@ -12,7 +12,6 @@
         "Referer": BASE_URL + "/"
     };
 
-    // CloudStream: 2 category — Creators và Hot
     const CATEGORIES = [
         { name: "All Creators", url: `${BASE_URL}/creators` },
         { name: "Hot",          url: `${BASE_URL}/hot` },
@@ -25,8 +24,6 @@
         return u;
     }
 
-    // CloudStream: div.item → a href, div.movie-name > h3, img.post-thumbnail
-    // Skip nếu href chứa "energizeio.com"
     function parseItems(doc) {
         return Array.from(doc.querySelectorAll("div.item")).map(el => {
             const a = el.querySelector("a");
@@ -61,7 +58,6 @@
 
     async function search(query, cb) {
         try {
-            // CloudStream: /search?search={query}&page=1
             const res = await http_get(`${BASE_URL}/search?search=${encodeURIComponent(query)}&page=1`, HEADERS);
             if (!res || res.status !== 200) return cb({ success: true, data: [] });
             const doc = await parseHtml(res.body);
@@ -77,19 +73,13 @@
             if (!res || res.status !== 200) return cb({ success: false, errorCode: "SITE_OFFLINE" });
             const doc = await parseHtml(res.body);
 
-            // CloudStream: div.actor-name > h1
             const title = doc.querySelector("div.actor-name > h1")?.textContent?.trim();
             if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "No title" });
 
             const poster = fixUrl(doc.querySelector("img.model-thumbnail")?.getAttribute("src") || "");
-
-            // CloudStream: div.actor-movie > span
             const description = doc.querySelector("div.actor-movie > span")?.textContent?.trim() || "";
-
-            // CloudStream: actor = creator name
             const cast = [new Actor({ name: title })];
 
-            // Recommendations từ div.srelacionados article + ul.movies-comming li.movie-item
             const recommendations = [];
             const recSeen = new Set();
             doc.querySelectorAll("div.srelacionados article, ul.movies-comming li.movie-item").forEach(el => {
@@ -99,56 +89,57 @@
                 if (!recUrl || recSeen.has(recUrl)) return;
                 const recTitle = el.querySelector("span.name")?.textContent?.trim();
                 if (!recTitle) return;
-                const img = el.querySelector("img.post-thumbnail");
-                const recPoster = fixUrl(img?.getAttribute("src") || "");
+                const recPoster = fixUrl(el.querySelector("img.post-thumbnail")?.getAttribute("src") || "");
                 recSeen.add(recUrl);
                 recommendations.push(new MultimediaItem({ title: recTitle, url: recUrl, posterUrl: recPoster, type: "movie" }));
             });
 
-            // CloudStream: userSlug = url.substringAfterLast("/")
             const userSlug = url.replace(/\/$/, "").split("/").pop();
-
-            // Fetch video list qua API JSON — CloudStream fetch đến page 50 hoặc đến khi response rỗng
             const apiHeaders = {
                 ...HEADERS,
                 "x-requested-with": "XMLHttpRequest",
-                "referer": `${BASE_URL}/${userSlug}/video`
+                "referer": `${BASE_URL}/${userSlug}/video`,
+                "Cookie": "qzqz0=1"
             };
-            const apiCookies = "qzqz0=1";
 
-            const episodes = [];
-            for (let page = 1; page <= 50; page++) {
-                try {
+            // Fetch tất cả 50 page song song thay vì tuần tự
+            const pageResults = await Promise.allSettled(
+                Array.from({ length: 50 }, (_, i) => i + 1).map(async (page) => {
                     const apiRes = await http_get(
                         `${BASE_URL}/${userSlug}?page=${page}&type=videos&order=0`,
-                        { ...apiHeaders, "Cookie": apiCookies }
+                        apiHeaders
                     );
-                    if (!apiRes || !apiRes.body) break;
+                    if (!apiRes || !apiRes.body) return [];
+                    try {
+                        const videos = JSON.parse(apiRes.body);
+                        if (!Array.isArray(videos) || videos.length === 0) return [];
+                        return videos;
+                    } catch (e) { return []; }
+                })
+            );
 
-                    let videos;
-                    try { videos = JSON.parse(apiRes.body); } catch (e) { break; }
-                    if (!Array.isArray(videos) || videos.length === 0) break;
+            // Gộp kết quả theo đúng thứ tự page
+            const episodes = [];
+            pageResults.forEach((r, pageIdx) => {
+                const videos = r.status === "fulfilled" ? r.value : [];
+                videos.forEach((video, vidIdx) => {
+                    const id        = video["id"]?.toString();
+                    const streamUrl = video["stream_url_play"]?.toString();
+                    const thumb     = video["thumbnail"]?.toString() || "";
+                    const desc      = video["description"]?.toString() || "";
+                    const pubDate   = video["published_date"]?.toString() || "";
+                    if (!id || !streamUrl) return;
 
-                    videos.forEach(video => {
-                        const id          = video["id"]?.toString();
-                        const streamUrl   = video["stream_url_play"]?.toString();
-                        const thumb       = video["thumbnail"]?.toString() || "";
-                        const desc        = video["description"]?.toString() || "";
-                        const pubDate     = video["published_date"]?.toString() || "";
-                        if (!id || !streamUrl) return;
-
-                        episodes.push(new Episode({
-                            name: `ID: ${id}`,
-                            // CloudStream: url = "{userSlug}|{streamUrl}"
-                            url: `${userSlug}|${streamUrl}`,
-                            season: 1,
-                            episode: episodes.length + 1,
-                            posterUrl: thumb || undefined,
-                            description: pubDate ? `Published: ${pubDate}\n${desc}` : desc
-                        }));
-                    });
-                } catch (e) { break; }
-            }
+                    episodes.push(new Episode({
+                        name: pubDate ? `${pubDate} — ID: ${id}` : `ID: ${id}`,
+                        url: `${userSlug}|${streamUrl}`,
+                        season: 1,
+                        episode: pageIdx * 12 + vidIdx + 1,
+                        posterUrl: thumb || undefined,
+                        description: desc || undefined
+                    }));
+                });
+            });
 
             cb({
                 success: true,
@@ -170,18 +161,13 @@
 
     async function loadStreams(data, cb) {
         try {
-            // CloudStream: split "|" → [userSlug, originUrl]
             const pipeIdx = data.indexOf("|");
             if (pipeIdx === -1) return cb({ success: true, data: [] });
 
             const userSlug = data.substring(0, pipeIdx);
             const originUrl = data.substring(pipeIdx + 1);
 
-            // CloudStream decode:
-            // 1. drop 16 ký tự đầu
-            // 2. drop 16 ký tự cuối
-            // 3. reverse
-            // 4. base64 decode
+            // CloudStream decode: drop 16 đầu + 16 cuối → reverse → base64 decode
             const stripped = originUrl.slice(16, -16);
             const reversed = stripped.split("").reverse().join("");
             const decoded  = atob(reversed);
@@ -192,7 +178,7 @@
                 success: true,
                 data: [new StreamResult({
                     url: decoded,
-                    source: `HotLeak - ${username}`,
+                    source: `HotLeak — ${username}`,
                     headers: { "Referer": BASE_URL + "/" }
                 })]
             });
