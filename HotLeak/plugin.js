@@ -24,6 +24,13 @@
         return u;
     }
 
+    function decodeStreamUrl(originUrl) {
+        // CloudStream: .drop(16).dropLast(16).reversed() → base64Decode
+        const stripped = originUrl.slice(16, -16);
+        const reversed = stripped.split("").reverse().join("");
+        return atob(reversed);
+    }
+
     function parseItems(doc) {
         return Array.from(doc.querySelectorAll("div.item")).map(el => {
             const a = el.querySelector("a");
@@ -101,7 +108,7 @@
                 "Cookie": "qzqz0=1"
             };
 
-            // CloudStream: loop tuần tự từng page, break khi rỗng
+            // Loop tuần tự, break khi rỗng như CloudStream
             const episodes = [];
             for (let page = 1; page <= 50; page++) {
                 try {
@@ -115,18 +122,18 @@
                     try { videos = JSON.parse(apiRes.body); } catch (e) { break; }
                     if (!Array.isArray(videos) || videos.length === 0) break;
 
-                    videos.forEach((video, idx) => {
-                        const id        = video["id"]?.toString();
-                        const streamUrl = video["stream_url_play"]?.toString();
-                        const thumb     = video["thumbnail"]?.toString() || "";
-                        const desc      = video["description"]?.toString() || "";
-                        const pubDate   = video["published_date"]?.toString() || "";
-                        if (!id || !streamUrl) return;
+                    videos.forEach(video => {
+                        const id      = video["id"]?.toString();
+                        const thumb   = video["thumbnail"]?.toString() || "";
+                        const desc    = video["description"]?.toString() || "";
+                        const pubDate = video["published_date"]?.toString() || "";
+                        if (!id) return;
 
-                        // CloudStream: chỉ set name + posterUrl, KHÔNG set season/episode number
+                        // Lưu userSlug + videoId thay vì stream_url_play có token hết hạn
+                        // loadStreams sẽ fetch lại URL tươi khi user bấm xem
                         episodes.push({
                             name: `ID: ${id}`,
-                            url: `${userSlug}|${streamUrl}`,
+                            url: `${userSlug}|${id}`,
                             season: 1,
                             episode: episodes.length + 1,
                             posterUrl: thumb || undefined,
@@ -160,14 +167,41 @@
             if (pipeIdx === -1) return cb({ success: true, data: [] });
 
             const userSlug = data.substring(0, pipeIdx);
-            const originUrl = data.substring(pipeIdx + 1);
+            const videoId  = data.substring(pipeIdx + 1);
+            const username = userSlug.split("/").pop();
+
+            // Fetch lại API để lấy stream_url_play tươi — tránh token hết hạn
+            const apiHeaders = {
+                ...HEADERS,
+                "x-requested-with": "XMLHttpRequest",
+                "referer": `${BASE_URL}/${userSlug}/video`,
+                "Cookie": "qzqz0=1"
+            };
+
+            // Tìm video trong page 1..50, dừng khi thấy
+            let streamUrl = null;
+            for (let page = 1; page <= 50; page++) {
+                const apiRes = await http_get(
+                    `${BASE_URL}/${userSlug}?page=${page}&type=videos&order=0`,
+                    apiHeaders
+                );
+                if (!apiRes || !apiRes.body) break;
+
+                let videos;
+                try { videos = JSON.parse(apiRes.body); } catch (e) { break; }
+                if (!Array.isArray(videos) || videos.length === 0) break;
+
+                const found = videos.find(v => v["id"]?.toString() === videoId);
+                if (found) {
+                    streamUrl = found["stream_url_play"]?.toString();
+                    break;
+                }
+            }
+
+            if (!streamUrl) return cb({ success: true, data: [] });
 
             // CloudStream: .drop(16).dropLast(16).reversed() → base64Decode
-            const stripped = originUrl.slice(16, -16);
-            const reversed = stripped.split("").reverse().join("");
-            const decoded  = atob(reversed);
-
-            const username = userSlug.split("/").pop();
+            const decoded = decodeStreamUrl(streamUrl);
 
             cb({
                 success: true,
