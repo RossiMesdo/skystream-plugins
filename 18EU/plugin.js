@@ -100,7 +100,7 @@
                 return new MultimediaItem({ title: recTitle, url: recUrl, posterUrl: recPoster, type: "movie" });
             }).filter(Boolean);
 
-            // ── Episodes ──
+            // ── Episodes — dùng plain object như bollyflix ──
             const episodes = [];
 
             // Tầng 1: ul.halim-list-eps li.halim-episode-item
@@ -112,13 +112,15 @@
                 const epName = el.querySelector("span")?.textContent?.trim()
                     || el.querySelector("a")?.getAttribute("title")?.trim()
                     || `Episode ${idx + 1}`;
-                episodes.push(new Episode({
+                // CloudStream: epname.filter { it.isDigit() }.toIntOrNull()
+                const epNum = parseInt(epName.replace(/\D/g, "")) || idx + 1;
+                episodes.push({
                     name: epName,
                     url: epUrl,
                     season: 1,
-                    episode: idx + 1,
+                    episode: epNum,
                     posterUrl: poster || undefined
-                }));
+                });
             });
 
             // Tầng 2: var jsonEpisodes trong script
@@ -132,29 +134,33 @@
                     while ((m = regex.exec(jsonScript.textContent)) !== null) {
                         const epUrl = fixUrl(m[1].replace(/\\\//g, "/"));
                         const epName = m[2];
-                        episodes.push(new Episode({
+                        const epNum = parseInt(epName.replace(/\D/g, "")) || idx + 1;
+                        episodes.push({
                             name: epName,
                             url: epUrl,
                             season: 1,
-                            episode: idx + 1,
+                            episode: epNum,
                             posterUrl: poster || undefined
-                        }));
+                        });
                         idx++;
                     }
                 }
             }
 
-            // Tầng 3: movie đơn — dùng a.watch-movie hoặc chính url
+            // Tầng 3: movie đơn
             if (episodes.length === 0) {
                 const watchUrl = fixUrl(doc.querySelector("a.watch-movie")?.getAttribute("href") || "") || url;
-                episodes.push(new Episode({
+                episodes.push({
                     name: "Play",
                     url: watchUrl,
                     season: 1,
                     episode: 1,
                     posterUrl: poster || undefined
-                }));
+                });
             }
+
+            // CloudStream: episodes.size > 1 → TvSeries, không thì Movie
+            const isSeries = episodes.length > 1;
 
             cb({
                 success: true,
@@ -162,7 +168,7 @@
                     title,
                     url,
                     posterUrl: poster,
-                    type: "movie",
+                    type: isSeries ? "series" : "movie",
                     description,
                     year,
                     cast: cast.length ? cast : undefined,
