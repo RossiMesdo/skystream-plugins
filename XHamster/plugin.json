@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.xhamster",
+  "name": "xHamster",
+  "version": 1,
+  "baseUrl": "https://xhamster.com",
+  "description": "xHamster - Adult video site",
+  "authors": ["Lord"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
