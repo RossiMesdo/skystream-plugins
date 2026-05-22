@@ -101,47 +101,40 @@
                 "Cookie": "qzqz0=1"
             };
 
-            // Fetch 50 page song song
-            const pageResults = await Promise.allSettled(
-                Array.from({ length: 50 }, (_, i) => i + 1).map(async (page) => {
+            // CloudStream: loop tuần tự từng page, break khi rỗng
+            const episodes = [];
+            for (let page = 1; page <= 50; page++) {
+                try {
                     const apiRes = await http_get(
                         `${BASE_URL}/${userSlug}?page=${page}&type=videos&order=0`,
                         apiHeaders
                     );
-                    if (!apiRes || !apiRes.body) return [];
-                    try {
-                        const data = JSON.parse(apiRes.body);
-                        return Array.isArray(data) && data.length > 0 ? data : [];
-                    } catch (e) { return []; }
-                })
-            );
+                    if (!apiRes || !apiRes.body) break;
 
-            const allVideos = pageResults.flatMap(r => r.status === "fulfilled" ? r.value : []);
+                    let videos;
+                    try { videos = JSON.parse(apiRes.body); } catch (e) { break; }
+                    if (!Array.isArray(videos) || videos.length === 0) break;
 
-            // Đánh season mỗi 100 tập tránh bị giới hạn
-            const episodes = [];
-            let epNum = 1;
-            let seasonNum = 1;
-            allVideos.forEach((video) => {
-                const id        = video["id"]?.toString();
-                const streamUrl = video["stream_url_play"]?.toString();
-                const thumb     = video["thumbnail"]?.toString() || "";
-                const desc      = video["description"]?.toString() || "";
-                const pubDate   = video["published_date"]?.toString() || "";
-                if (!id || !streamUrl) return;
+                    videos.forEach((video, idx) => {
+                        const id        = video["id"]?.toString();
+                        const streamUrl = video["stream_url_play"]?.toString();
+                        const thumb     = video["thumbnail"]?.toString() || "";
+                        const desc      = video["description"]?.toString() || "";
+                        const pubDate   = video["published_date"]?.toString() || "";
+                        if (!id || !streamUrl) return;
 
-                episodes.push(new Episode({
-                    name: pubDate || `Video ${epNum}`,
-                    url: `${userSlug}|${streamUrl}`,
-                    season: seasonNum,
-                    episode: epNum,
-                    posterUrl: thumb || undefined,
-                    description: desc || undefined
-                }));
-
-                epNum++;
-                if (epNum > 100) { epNum = 1; seasonNum++; }
-            });
+                        // CloudStream: chỉ set name + posterUrl, KHÔNG set season/episode number
+                        episodes.push({
+                            name: `ID: ${id}`,
+                            url: `${userSlug}|${streamUrl}`,
+                            season: 1,
+                            episode: episodes.length + 1,
+                            posterUrl: thumb || undefined,
+                            description: `Published: ${pubDate}\n${desc}`.trim()
+                        });
+                    });
+                } catch (e) { break; }
+            }
 
             cb({
                 success: true,
@@ -149,7 +142,7 @@
                     title,
                     url,
                     posterUrl: poster,
-                    type: "movie",
+                    type: "series",
                     description,
                     cast,
                     recommendations: recommendations.length ? recommendations : undefined,
@@ -169,13 +162,10 @@
             const userSlug = data.substring(0, pipeIdx);
             const originUrl = data.substring(pipeIdx + 1);
 
-            // CloudStream:
-            // 1. drop(16) → dropLast(16)
-            // 2. base64Decode
-            // 3. reversed()
+            // CloudStream: .drop(16).dropLast(16).reversed() → base64Decode
             const stripped = originUrl.slice(16, -16);
-            const b64decoded = atob(stripped);
-            const decoded = b64decoded.split("").reverse().join("");
+            const reversed = stripped.split("").reverse().join("");
+            const decoded  = atob(reversed);
 
             const username = userSlug.split("/").pop();
 
