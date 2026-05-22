@@ -100,10 +100,11 @@
                 return new MultimediaItem({ title: recTitle, url: recUrl, posterUrl: recPoster, type: "movie" });
             }).filter(Boolean);
 
-            // ── Episodes — dùng plain object như bollyflix ──
+            // ── Episodes ──
             const episodes = [];
 
             // Tầng 1: ul.halim-list-eps li.halim-episode-item
+            // Giữ nguyên tất cả li như CloudStream, đánh số idx tăng dần để không trùng
             doc.querySelectorAll("ul.halim-list-eps li.halim-episode-item").forEach((el, idx) => {
                 const epUrl = fixUrl(
                     el.querySelector("a")?.getAttribute("href") || el.getAttribute("data-href") || ""
@@ -112,13 +113,11 @@
                 const epName = el.querySelector("span")?.textContent?.trim()
                     || el.querySelector("a")?.getAttribute("title")?.trim()
                     || `Episode ${idx + 1}`;
-                // CloudStream: epname.filter { it.isDigit() }.toIntOrNull()
-                const epNum = parseInt(epName.replace(/\D/g, "")) || idx + 1;
                 episodes.push({
                     name: epName,
                     url: epUrl,
                     season: 1,
-                    episode: epNum,
+                    episode: idx + 1,
                     posterUrl: poster || undefined
                 });
             });
@@ -134,12 +133,11 @@
                     while ((m = regex.exec(jsonScript.textContent)) !== null) {
                         const epUrl = fixUrl(m[1].replace(/\\\//g, "/"));
                         const epName = m[2];
-                        const epNum = parseInt(epName.replace(/\D/g, "")) || idx + 1;
                         episodes.push({
                             name: epName,
                             url: epUrl,
                             season: 1,
-                            episode: epNum,
+                            episode: idx + 1,
                             posterUrl: poster || undefined
                         });
                         idx++;
@@ -159,7 +157,6 @@
                 });
             }
 
-            // CloudStream: episodes.size > 1 → TvSeries, không thì Movie
             const isSeries = episodes.length > 1;
 
             cb({
