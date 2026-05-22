@@ -24,15 +24,11 @@
         return u;
     }
 
-    // CloudStream: page 1 = url gốc, page 2+ = url/page/N/
     function buildPageUrl(base, page) {
         if (page <= 1) return base;
         return base.replace(/\/$/, "") + `/page/${page}/`;
     }
 
-    // CloudStream: article.thumb
-    // title từ h2.entry-title hoặc a.halim-thumb[title]
-    // poster từ img[data-src] fallback src
     function parseItems(doc) {
         return Array.from(doc.querySelectorAll("article.thumb")).map(el => {
             const title = el.querySelector("h2.entry-title")?.textContent?.trim()
@@ -66,7 +62,6 @@
 
     async function search(query, cb) {
         try {
-            // CloudStream: /search/{query}
             const res = await http_get(`${BASE_URL}/search/${encodeURIComponent(query)}`, HEADERS);
             if (!res || res.status !== 200) return cb({ success: true, data: [] });
             const doc = await parseHtml(res.body);
@@ -82,7 +77,6 @@
             if (!res || res.status !== 200) return cb({ success: false, errorCode: "SITE_OFFLINE" });
             const doc = await parseHtml(res.body);
 
-            // CloudStream: h1.entry-title
             const title = doc.querySelector("h1.entry-title")?.textContent?.trim() || "";
             if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "No title" });
 
@@ -90,13 +84,11 @@
             const description = doc.querySelector("article.item-content p")?.textContent?.trim() || "";
             const year = parseInt(doc.querySelector("span.released a")?.textContent?.trim()) || undefined;
 
-            // Cast từ p.actors a
             const cast = Array.from(doc.querySelectorAll("p.actors a")).map(a => {
                 const name = a.textContent.trim();
                 return name ? new Actor({ name }) : null;
             }).filter(Boolean);
 
-            // Recommendations từ div#halim-ajax-popular-post div.item
             const recommendations = Array.from(
                 doc.querySelectorAll("div#halim-ajax-popular-post div.item")
             ).map(el => {
@@ -109,28 +101,30 @@
             }).filter(Boolean);
 
             // ── Episodes ──
-            // CloudStream: thử ul.halim-list-eps li.halim-episode-item trước
             const episodes = [];
 
+            // Tầng 1: ul.halim-list-eps li.halim-episode-item
             doc.querySelectorAll("ul.halim-list-eps li.halim-episode-item").forEach((el, idx) => {
-                const epUrl = fixUrl(el.querySelector("a")?.getAttribute("href") || el.getAttribute("data-href") || "");
+                const epUrl = fixUrl(
+                    el.querySelector("a")?.getAttribute("href") || el.getAttribute("data-href") || ""
+                );
                 if (!epUrl) return;
                 const epName = el.querySelector("span")?.textContent?.trim()
                     || el.querySelector("a")?.getAttribute("title")?.trim()
                     || `Episode ${idx + 1}`;
-                const epNum = parseInt(epName.replace(/\D/g, "")) || idx + 1;
                 episodes.push(new Episode({
                     name: epName,
                     url: epUrl,
                     season: 1,
-                    episode: epNum,
+                    episode: idx + 1,
+                    posterUrl: poster || undefined
                 }));
             });
 
-            // CloudStream: fallback — parse var jsonEpisodes từ script tag
+            // Tầng 2: var jsonEpisodes trong script
             if (episodes.length === 0) {
-                const scripts = Array.from(doc.querySelectorAll("script"));
-                const jsonScript = scripts.find(s => s.textContent.includes("var jsonEpisodes"));
+                const jsonScript = Array.from(doc.querySelectorAll("script"))
+                    .find(s => s.textContent.includes("var jsonEpisodes"));
                 if (jsonScript) {
                     const regex = /"postUrl":"(.*?)".*?"episodeName":"(.*?)"/g;
                     let m;
@@ -138,19 +132,19 @@
                     while ((m = regex.exec(jsonScript.textContent)) !== null) {
                         const epUrl = fixUrl(m[1].replace(/\\\//g, "/"));
                         const epName = m[2];
-                        const epNum = parseInt(epName.replace(/\D/g, "")) || idx + 1;
                         episodes.push(new Episode({
                             name: epName,
                             url: epUrl,
                             season: 1,
-                            episode: epNum,
+                            episode: idx + 1,
+                            posterUrl: poster || undefined
                         }));
                         idx++;
                     }
                 }
             }
 
-            // CloudStream: nếu không có episode list → dùng a.watch-movie href hoặc chính url
+            // Tầng 3: movie đơn — dùng a.watch-movie hoặc chính url
             if (episodes.length === 0) {
                 const watchUrl = fixUrl(doc.querySelector("a.watch-movie")?.getAttribute("href") || "") || url;
                 episodes.push(new Episode({
@@ -188,20 +182,17 @@
 
             const body = res.body;
 
-            // CloudStream: lấy nonce, post_id, server_id từ trang
             const nonce    = body.match(/data-nonce="([^"]+)"/)?.[1];
             const postId   = body.match(/post_id":(\d+)/)?.[1];
             const serverId = body.match(/server":"(\d+)"/)?.[1] || "1";
 
             if (!nonce || !postId) return cb({ success: true, data: [] });
 
-            // CloudStream: episode slug = phần cuối URL, bỏ .html, bỏ -svN
             let episodeSlug = url.replace(/\/$/, "").split("/").pop()?.replace(".html", "") || "";
             if (episodeSlug.includes("-sv")) {
                 episodeSlug = episodeSlug.split("-sv")[0];
             }
 
-            // CloudStream: GET player.php với params
             const playerUrl = `${BASE_URL}/wp-content/themes/halimmovies/player.php`
                 + `?episode_slug=${encodeURIComponent(episodeSlug)}`
                 + `&server_id=${serverId}`
@@ -218,7 +209,6 @@
 
             if (!playerRes || !playerRes.body) return cb({ success: true, data: [] });
 
-            // CloudStream: parse "file":"url" từ response
             const m3u8 = playerRes.body.match(/"file"\s*:\s*"([^"]+)"/i)?.[1]?.replace(/\\\//g, "/");
             if (!m3u8) return cb({ success: true, data: [] });
 
