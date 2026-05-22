@@ -18,6 +18,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.adulttvchannels.sky"
   },
   {
+    "packageName": "dev.lord.hotleak",
+    "name": "HotLeak",
+    "version": 1,
+    "baseUrl": "https://hotleak.vip",
+    "description": "HotLeak - OnlyFans & Creator leaks",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.hotleak.sky"
+  },
+  {
     "packageName": "dev.lord.javHD",
     "name": "JavHD",
     "version": 1,
