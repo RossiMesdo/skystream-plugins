@@ -147,6 +147,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.pornhub.sky"
   },
   {
+    "packageName": "dev.lord.xhamster",
+    "name": "xHamster",
+    "version": 1,
+    "baseUrl": "https://xhamster.com",
+    "description": "xHamster - Adult video site",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xhamster.sky"
+  },
+  {
     "packageName": "dev.lord.xxxparodyhd",
     "name": "XXXParodyHD",
     "version": 2,
