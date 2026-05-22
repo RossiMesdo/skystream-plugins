@@ -36,6 +36,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.adulttvchannels.sky"
   },
   {
+    "packageName": "dev.lord.cosxplay",
+    "name": "CosXPlay",
+    "version": 1,
+    "baseUrl": "https://cosxplay.com",
+    "description": "CosXPlay - Cosplay adult videos",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.cosxplay.sky"
+  },
+  {
     "packageName": "dev.lord.hotleak",
     "name": "HotLeak",
     "version": 3,
