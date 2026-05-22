@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.javtiful",
+  "name": "Javtiful",
+  "version": 1,
+  "baseUrl": "https://javtiful.com",
+  "description": "Javtiful - JAV streaming site",
+  "authors": ["Lord"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
