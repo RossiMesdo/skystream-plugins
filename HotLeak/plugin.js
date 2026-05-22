@@ -32,8 +32,7 @@
             if (!url || url.includes("energizeio.com")) return null;
             const title = el.querySelector("div.movie-name > h3")?.textContent?.trim();
             if (!title) return null;
-            const img = el.querySelector("img.post-thumbnail");
-            const poster = fixUrl(img?.getAttribute("src") || "");
+            const poster = fixUrl(el.querySelector("img.post-thumbnail")?.getAttribute("src") || "");
             return new MultimediaItem({ title, url, posterUrl: poster, type: "movie" });
         }).filter(Boolean);
     }
@@ -102,7 +101,7 @@
                 "Cookie": "qzqz0=1"
             };
 
-            // Fetch tất cả 50 page song song thay vì tuần tự
+            // Fetch 50 page song song
             const pageResults = await Promise.allSettled(
                 Array.from({ length: 50 }, (_, i) => i + 1).map(async (page) => {
                     const apiRes = await http_get(
@@ -111,34 +110,37 @@
                     );
                     if (!apiRes || !apiRes.body) return [];
                     try {
-                        const videos = JSON.parse(apiRes.body);
-                        if (!Array.isArray(videos) || videos.length === 0) return [];
-                        return videos;
+                        const data = JSON.parse(apiRes.body);
+                        return Array.isArray(data) && data.length > 0 ? data : [];
                     } catch (e) { return []; }
                 })
             );
 
-            // Gộp kết quả theo đúng thứ tự page
-            const episodes = [];
-            pageResults.forEach((r, pageIdx) => {
-                const videos = r.status === "fulfilled" ? r.value : [];
-                videos.forEach((video, vidIdx) => {
-                    const id        = video["id"]?.toString();
-                    const streamUrl = video["stream_url_play"]?.toString();
-                    const thumb     = video["thumbnail"]?.toString() || "";
-                    const desc      = video["description"]?.toString() || "";
-                    const pubDate   = video["published_date"]?.toString() || "";
-                    if (!id || !streamUrl) return;
+            const allVideos = pageResults.flatMap(r => r.status === "fulfilled" ? r.value : []);
 
-                    episodes.push(new Episode({
-                        name: pubDate ? `${pubDate} — ID: ${id}` : `ID: ${id}`,
-                        url: `${userSlug}|${streamUrl}`,
-                        season: 1,
-                        episode: pageIdx * 12 + vidIdx + 1,
-                        posterUrl: thumb || undefined,
-                        description: desc || undefined
-                    }));
-                });
+            // Đánh season mỗi 100 tập tránh bị giới hạn
+            const episodes = [];
+            let epNum = 1;
+            let seasonNum = 1;
+            allVideos.forEach((video) => {
+                const id        = video["id"]?.toString();
+                const streamUrl = video["stream_url_play"]?.toString();
+                const thumb     = video["thumbnail"]?.toString() || "";
+                const desc      = video["description"]?.toString() || "";
+                const pubDate   = video["published_date"]?.toString() || "";
+                if (!id || !streamUrl) return;
+
+                episodes.push(new Episode({
+                    name: pubDate || `Video ${epNum}`,
+                    url: `${userSlug}|${streamUrl}`,
+                    season: seasonNum,
+                    episode: epNum,
+                    posterUrl: thumb || undefined,
+                    description: desc || undefined
+                }));
+
+                epNum++;
+                if (epNum > 100) { epNum = 1; seasonNum++; }
             });
 
             cb({
@@ -167,10 +169,13 @@
             const userSlug = data.substring(0, pipeIdx);
             const originUrl = data.substring(pipeIdx + 1);
 
-            // CloudStream decode: drop 16 đầu + 16 cuối → reverse → base64 decode
+            // CloudStream:
+            // 1. drop(16) → dropLast(16)
+            // 2. base64Decode
+            // 3. reversed()
             const stripped = originUrl.slice(16, -16);
-            const reversed = stripped.split("").reverse().join("");
-            const decoded  = atob(reversed);
+            const b64decoded = atob(stripped);
+            const decoded = b64decoded.split("").reverse().join("");
 
             const username = userSlug.split("/").pop();
 
