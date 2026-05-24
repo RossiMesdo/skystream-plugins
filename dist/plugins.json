@@ -54,6 +54,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.cosxplay.sky"
   },
   {
+    "packageName": "dev.lord.eporner",
+    "name": "EPorner",
+    "version": 1,
+    "baseUrl": "https://www.eporner.com",
+    "description": "EPorner - Free HD porn videos",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.eporner.sky"
+  },
+  {
     "packageName": "dev.lord.hotleak",
     "name": "HotLeak",
     "version": 3,
