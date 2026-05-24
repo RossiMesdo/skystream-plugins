@@ -45,15 +45,16 @@
         return u;
     }
 
-    // CloudStream: URL/page/?geo=us
+    // CloudStream: "${request.data}/$page?geo=us"
+    // Tức /newest/1?geo=us, /newest/2?geo=us
     function buildPageUrl(base, page) {
-        if (page <= 1) return `${base}?geo=us`;
         const clean = base.replace(/\/$/, "");
         return `${clean}/${page}?geo=us`;
     }
 
     // CloudStream: div.thumb-list div.thumb-list__item
-    // title từ a.video-thumb-info__name, poster từ img.thumb-image-container__image
+    // title + href từ a.video-thumb-info__name
+    // poster từ img.thumb-image-container__image[src]
     function parseItems(doc) {
         return Array.from(doc.querySelectorAll("div.thumb-list div.thumb-list__item")).map(el => {
             const link = el.querySelector("a.video-thumb-info__name");
@@ -62,7 +63,7 @@
             const url = fixUrl(link.getAttribute("href") || "");
             if (!title || !url) return null;
             const img = el.querySelector("img.thumb-image-container__image");
-            const poster = fixUrl(img?.getAttribute("src") || img?.getAttribute("data-src") || "");
+            const poster = fixUrl(img?.getAttribute("src") || "");
             return new MultimediaItem({ title, url, posterUrl: poster, type: "movie" });
         }).filter(Boolean);
     }
@@ -87,7 +88,7 @@
 
     async function search(query, cb) {
         try {
-            // CloudStream: /search/{query replace space with +}/?page=1&geo=us
+            // CloudStream: query.replace(" ", "+"), page=1
             const q = query.replace(/ /g, "+");
             const res = await http_get(
                 `${BASE_URL}/search/${encodeURIComponent(q)}/?page=1&x_platform_switch=desktop&geo=us`,
@@ -111,28 +112,24 @@
             const title = doc.querySelector("div.with-player-container h1")?.textContent?.trim() || "";
             if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "No title" });
 
-            // CloudStream: poster từ div.xp-preload-image style="...https:...url..."
+            // CloudStream: div.xp-preload-image style → substringAfter("https:").substringBefore("');")
             let poster = "";
             const preloadDiv = doc.querySelector("div.xp-preload-image");
             if (preloadDiv) {
                 const style = preloadDiv.getAttribute("style") || "";
-                const m = style.match(/https:[^)']+/);
-                if (m) poster = m[0];
-            }
-            if (!poster) {
-                poster = fixUrl(doc.querySelector("meta[property='og:image']")?.getAttribute("content") || "");
+                const afterHttps = style.split("https:")[1];
+                if (afterHttps) poster = "https:" + afterHttps.split("');")[0];
             }
 
-            // CloudStream: description từ div.controls-info div.ab-info p
             const description = doc.querySelector("div.controls-info div.ab-info p")
                 ?.textContent?.trim()?.replace(/\s+/g, " ") || "";
 
-            // CloudStream: tags từ div[data-role='video-tags-list'] a[href*='/categories/'] + a[href*='/tags/']
+            // CloudStream: div[data-role='video-tags-list'] a[href*='/categories/'] + a[href*='/tags/']
             const tags = Array.from(
                 doc.querySelectorAll("div[data-role='video-tags-list'] a[href*='/categories/'], div[data-role='video-tags-list'] a[href*='/tags/']")
             ).map(a => a.textContent.trim()).filter(Boolean);
 
-            // CloudStream: cast từ a.entity-author-container__name span + img
+            // CloudStream: a.entity-author-container__name → span (name) + img (image)
             const cast = Array.from(doc.querySelectorAll("a.entity-author-container__name")).map(a => {
                 const name = a.querySelector("span")?.textContent?.trim() || "";
                 const img = a.querySelector("img");
@@ -140,13 +137,13 @@
                 return name ? new Actor({ name, image: image || undefined }) : null;
             }).filter(Boolean);
 
-            // CloudStream: recommendations từ div[data-role='related-item']
+            // CloudStream: div[data-role='related-item']
+            // title từ a.video-thumb-info__name, link từ a[data-role='thumb-link']
             const recommendations = Array.from(
                 doc.querySelectorAll("div[data-role='related-item']")
             ).map(el => {
-                const link = el.querySelector("a.video-thumb-info__name");
-                const recTitle = link?.textContent?.trim();
-                const recUrl = fixUrl(link?.getAttribute("href") || "");
+                const recTitle = el.querySelector("a.video-thumb-info__name")?.textContent?.trim();
+                const recUrl = fixUrl(el.querySelector("a[data-role='thumb-link']")?.getAttribute("href") || "");
                 if (!recTitle || !recUrl) return null;
                 const img = el.querySelector("img");
                 const recPoster = fixUrl(img?.getAttribute("src") || img?.getAttribute("data-src") || "");
@@ -182,54 +179,19 @@
         try {
             const res = await http_get(url, HEADERS);
             if (!res || !res.body) return cb({ success: true, data: [] });
+            const doc = await parseHtml(res.body);
 
-            const body = res.body;
+            // CloudStream: chỉ dùng link[rel=preload][as=fetch] chứa .m3u8
             const streams = [];
-
-            // CloudStream tầng 1: link[rel=preload][as=fetch] chứa .m3u8
-            const doc = await parseHtml(body);
             doc.querySelectorAll("link[rel='preload'][as='fetch']").forEach(el => {
                 const href = el.getAttribute("href") || "";
-                if (href.includes(".m3u8")) {
-                    streams.push(new StreamResult({
-                        url: fixUrl(href),
-                        source: "xHamster",
-                        headers: { "Referer": url }
-                    }));
-                }
+                if (!href.includes(".m3u8")) return;
+                streams.push(new StreamResult({
+                    url: fixUrl(href),
+                    source: "xHamster",
+                    headers: { "Referer": url }
+                }));
             });
-
-            // CloudStream tầng 2: window.initials JSON → xplayerSettings
-            // Parse JSON từ window.initials = {...};
-            const initialsMatch = body.match(/window\.initials\s*=\s*(\{[\s\S]*?\});\s*(?:window|<\/script)/);
-            if (initialsMatch) {
-                try {
-                    const json = JSON.parse(initialsMatch[1]);
-                    const xplayer = json?.xplayerSettings;
-
-                    // HLS M3U8
-                    const hlsUrl = xplayer?.sources?.hls?.h264?.url;
-                    if (hlsUrl && !streams.find(s => s.url === hlsUrl)) {
-                        streams.push(new StreamResult({
-                            url: fixUrl(hlsUrl),
-                            source: "xHamster HLS",
-                            headers: { "Referer": url }
-                        }));
-                    }
-
-                    // Standard MP4 sources
-                    const stdSources = xplayer?.sources?.standard?.h264 || [];
-                    stdSources.forEach(s => {
-                        if (!s.url) return;
-                        const label = s.quality || "";
-                        streams.push(new StreamResult({
-                            url: fixUrl(s.url),
-                            source: label ? `xHamster ${label}` : "xHamster",
-                            headers: { "Referer": url }
-                        }));
-                    });
-                } catch (e) {}
-            }
 
             cb({ success: true, data: streams });
         } catch (e) {
