@@ -19,7 +19,6 @@
         return u;
     }
 
-    // CloudStream: div#video-list > div.video-item
     function parseItems(doc) {
         const items = [];
         const seen = new Set();
@@ -29,7 +28,7 @@
             const url = fixUrl(a.getAttribute("href") || "");
             if (!url || seen.has(url)) return;
             seen.add(url);
-            const title = el.querySelector("div.video-name")?.textContent?.trim() || el.textContent.trim();
+            const title = el.querySelector("div.video-name")?.textContent?.trim() || "";
             if (!title) return;
             const img = el.querySelector("img");
             const poster = fixUrl(img?.getAttribute("data-original") || img?.getAttribute("src") || "");
@@ -52,12 +51,9 @@
 
     async function search(query, cb) {
         try {
-            // CloudStream: /search/{query}/
             const res = await http_get(`${BASE_URL}/search/${encodeURIComponent(query)}/`, HEADERS);
             if (!res || res.status !== 200) return cb({ success: true, data: [] });
             const doc = await parseHtml(res.body);
-
-            // CloudStream: #container .box .video-list
             const items = [];
             const seen = new Set();
             doc.querySelectorAll("#container .box .video-list").forEach(el => {
@@ -69,7 +65,6 @@
                 const poster = fixUrl(el.querySelector(".video-image")?.getAttribute("src") || "");
                 items.push(new MultimediaItem({ title, url, posterUrl: poster, type: "movie" }));
             });
-
             cb({ success: true, data: items });
         } catch (e) {
             cb({ success: false, errorCode: "SEARCH_ERROR", message: e.message });
@@ -81,28 +76,15 @@
             const res = await http_get(url, HEADERS);
             if (!res || res.status !== 200) return cb({ success: false, errorCode: "SITE_OFFLINE" });
             const doc = await parseHtml(res.body);
-
-            // CloudStream: div#container h2
             const container = doc.querySelector("div#container");
             const title = container?.querySelector("h2")?.textContent?.trim() || "VLXX Video";
             const description = container?.querySelector("div.video-description")?.textContent?.trim() || "";
             const poster = fixUrl(doc.querySelector("meta[property='og:image']")?.getAttribute("content") || "");
-
             cb({
                 success: true,
                 data: new MultimediaItem({
-                    title,
-                    url,
-                    posterUrl: poster,
-                    type: "movie",
-                    description,
-                    episodes: [{
-                        name: "Play",
-                        url,
-                        season: 1,
-                        episode: 1,
-                        posterUrl: poster || undefined
-                    }]
+                    title, url, posterUrl: poster, type: "movie", description,
+                    episodes: [{ name: "Play", url, season: 1, episode: 1, posterUrl: poster || undefined }]
                 })
             });
         } catch (e) {
@@ -110,57 +92,67 @@
         }
     }
 
-    async function loadStreams(url, cb) {
+    // CloudStream getParamFromJS: tìm key trong string, lấy đến keyEnd rồi clean
+    function getParamFromJS(str, key, keyEnd) {
         try {
-            // CloudStream: lấy ID từ path — /video/slug/3140/ → id = "3140"
-            const pathParts = url.replace(/\/$/, "").split("/");
-            const id = pathParts[pathParts.length - 1];
-            if (!id || isNaN(parseInt(id))) return cb({ success: true, data: [] });
-
-            // CloudStream: POST /ajax.php với {vlxx_server:1, id, server:1}
-            // http_post(url, headers, body)
-            const body = `vlxx_server=1&id=${id}&server=1`;
-            let res;
-            try {
-                res = await http_post(`${BASE_URL}/ajax.php`, {
-                    ...HEADERS,
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "X-Requested-With": "XMLHttpRequest"
-                }, body);
-            } catch (e) {
-                // Thử đổi thứ tự headers/body nếu fail
-                res = await http_post(`${BASE_URL}/ajax.php`, body, {
-                    ...HEADERS,
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "X-Requested-With": "XMLHttpRequest"
-                });
-            }
-
-            if (!res || !res.body) return cb({ success: true, data: [] });
-
-            const responseBody = res.body;
-
-            // CloudStream: getParamFromJS — tìm "sources:" rồi lấy đến "}]"
-            const key = "sources:";
-            const keyEnd = "}]";
-            const startIdx = responseBody.indexOf(key);
-            if (startIdx === -1) return cb({ success: true, data: [] });
-
-            const temp = responseBody.substring(startIdx + key.length);
-            const endIdx = temp.indexOf(keyEnd);
-            if (endIdx === -1) return cb({ success: true, data: [] });
-
-            let jsonStr = temp.substring(0, endIdx + keyEnd.length);
-
-            // CloudStream: clean escape chars
-            jsonStr = jsonStr
+            const firstIndex = str.indexOf(key) + key.length;
+            if (firstIndex < key.length) return null;
+            const temp = str.substring(firstIndex);
+            const lastIndex = temp.indexOf(keyEnd) + keyEnd.length;
+            if (lastIndex < keyEnd.length) return null;
+            const jsonConfig = temp.substring(0, lastIndex);
+            return jsonConfig
                 .replace(/\\r/g, "")
                 .replace(/\\t/g, "")
                 .replace(/\\"/g, '"')
                 .replace(/\\\\\//g, "/")
-                .replace(/\\n/g, "")
-                .trim();
+                .replace(/\\n/g, "");
+        } catch (e) {
+            return null;
+        }
+    }
 
+    async function loadStreams(url, cb) {
+        try {
+            // CloudStream: pathSplits[size - 2]
+            // /video/slug/3140/ → ["", "video", "slug", "3140", ""] → index 3 = "3140"
+            const pathParts = url.split("/");
+            const id = pathParts[pathParts.length - 2];
+            if (!id || isNaN(parseInt(id))) return cb({ success: true, data: [] });
+
+            const postHeaders = {
+                ...HEADERS,
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"
+            };
+            const postBody = `vlxx_server=1&id=${id}&server=1`;
+
+            let res;
+            try {
+                res = await http_post(`${BASE_URL}/ajax.php`, postHeaders, postBody);
+            } catch (e) {
+                res = await http_post(`${BASE_URL}/ajax.php`, postBody, postHeaders);
+            }
+
+            if (!res || !res.body) return cb({ success: true, data: [] });
+
+            const text = res.body;
+
+            // CloudStream key chính xác: "var opts = {\r\n\t\t\t\t\t\tsources:"
+            // Dùng ký tự thật \r \n \t
+            const KEY = "var opts = {\r\n\t\t\t\t\t\tsources:";
+            const KEY_END = "}]";
+
+            let jsonStr = getParamFromJS(text, KEY, KEY_END);
+
+            // Fallback: thử key đơn giản hơn nếu format khác
+            if (!jsonStr) {
+                jsonStr = getParamFromJS(text, "sources:", KEY_END);
+            }
+
+            if (!jsonStr) return cb({ success: true, data: [] });
+
+            jsonStr = jsonStr.trim();
             if (!jsonStr.startsWith("[")) jsonStr = "[" + jsonStr;
 
             let sources;
@@ -168,7 +160,7 @@
             if (!Array.isArray(sources)) return cb({ success: true, data: [] });
 
             const streams = sources
-                .filter(s => s.file)
+                .filter(s => s && s.file)
                 .map(s => new StreamResult({
                     url: fixUrl(s.file),
                     source: s.label ? `VLXX ${s.label}` : "VLXX",
