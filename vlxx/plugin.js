@@ -92,7 +92,7 @@
         }
     }
 
-    // CloudStream getParamFromJS: tìm key trong string, lấy đến keyEnd rồi clean
+    // CloudStream getParamFromJS
     function getParamFromJS(str, key, keyEnd) {
         try {
             const firstIndex = str.indexOf(key) + key.length;
@@ -107,15 +107,12 @@
                 .replace(/\\"/g, '"')
                 .replace(/\\\\\//g, "/")
                 .replace(/\\n/g, "");
-        } catch (e) {
-            return null;
-        }
+        } catch (e) { return null; }
     }
 
     async function loadStreams(url, cb) {
         try {
             // CloudStream: pathSplits[size - 2]
-            // /video/slug/3140/ → ["", "video", "slug", "3140", ""] → index 3 = "3140"
             const pathParts = url.split("/");
             const id = pathParts[pathParts.length - 2];
             if (!id || isNaN(parseInt(id))) return cb({ success: true, data: [] });
@@ -136,18 +133,35 @@
 
             if (!res || !res.body) return cb({ success: true, data: [] });
 
-            const text = res.body;
+            // Response có thể là JSON-wrapped {"html":"..."} hoặc raw text
+            let text = res.body;
+            try {
+                const json = JSON.parse(text);
+                // Lấy field chứa HTML: html, content, data, result
+                text = json.html || json.content || json.data || json.result || text;
+            } catch (e) {
+                // Không phải JSON, dùng raw text
+            }
 
-            // CloudStream key chính xác: "var opts = {\r\n\t\t\t\t\t\tsources:"
-            // Dùng ký tự thật \r \n \t
-            const KEY = "var opts = {\r\n\t\t\t\t\t\tsources:";
+            // CloudStream key: "var opts = {\r\n\t\t\t\t\t\tsources:"
+            // Thử nhiều format key khác nhau
             const KEY_END = "}]";
+            let jsonStr = null;
 
-            let jsonStr = getParamFromJS(text, KEY, KEY_END);
+            // Key với ký tự thật \r\n\t
+            jsonStr = getParamFromJS(text, "var opts = {\r\n\t\t\t\t\t\tsources:", KEY_END);
 
-            // Fallback: thử key đơn giản hơn nếu format khác
+            // Fallback 1: key đơn giản
+            if (!jsonStr) jsonStr = getParamFromJS(text, "sources:", KEY_END);
+
+            // Fallback 2: regex tìm array JSON trực tiếp
             if (!jsonStr) {
-                jsonStr = getParamFromJS(text, "sources:", KEY_END);
+                const m = text.match(/\[\s*\{\s*["']?file["']?\s*:/);
+                if (m) {
+                    const start = text.indexOf(m[0]);
+                    const end = text.indexOf(KEY_END, start);
+                    if (end !== -1) jsonStr = text.substring(start, end + KEY_END.length);
+                }
             }
 
             if (!jsonStr) return cb({ success: true, data: [] });
@@ -178,5 +192,3 @@
     globalThis.load = load;
     globalThis.loadStreams = loadStreams;
 })();
-
-//123
