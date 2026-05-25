@@ -128,6 +128,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javtiful.sky"
   },
   {
+    "packageName": "dev.lord.koreanpornmovie",
+    "name": "KoreanPornMovie",
+    "version": 1,
+    "baseUrl": "https://koreanpornmovie.com",
+    "description": "KoreanPornMovie - Korean adult videos",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.koreanpornmovie.sky"
+  },
+  {
     "packageName": "dev.lord.missav",
     "name": "MissAV",
     "version": 4,
