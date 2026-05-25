@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.koreanpornmovie",
+  "name": "KoreanPornMovie",
+  "version": 1,
+  "baseUrl": "https://koreanpornmovie.com",
+  "description": "KoreanPornMovie - Korean adult videos",
+  "authors": ["Lord"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
