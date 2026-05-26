@@ -201,6 +201,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.rusporn.sky"
   },
   {
+    "packageName": "dev.lord.thotdeep",
+    "name": "ThotDeep",
+    "version": 1,
+    "baseUrl": "https://thotdeep.com",
+    "description": "ThotDeep - Celebrity and influencer leaks",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.thotdeep.sky"
+  },
+  {
     "packageName": "dev.lord.xhamster",
     "name": "xHamster",
     "version": 2,
