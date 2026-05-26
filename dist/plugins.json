@@ -183,6 +183,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.pornhub.sky"
   },
   {
+    "packageName": "dev.lord.rusporn",
+    "name": "Rusporn",
+    "version": 1,
+    "baseUrl": "https://en.rusporn.center",
+    "description": "Rusporn - Russian adult videos",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "ru"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.rusporn.sky"
+  },
+  {
     "packageName": "dev.lord.xhamster",
     "name": "xHamster",
     "version": 2,
