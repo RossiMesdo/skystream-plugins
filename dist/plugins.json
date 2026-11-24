@@ -72,6 +72,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.eporner.sky"
   },
   {
+    "packageName": "dev.ngochoanggod.freepornvideos",
+    "name": "Free Porn Videos",
+    "version": 1,
+    "baseUrl": "https://www.freepornvideos.xxx",
+    "description": "Browse and stream Free Porn Videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.ngochoanggod.freepornvideos.sky"
+  },
+  {
     "packageName": "dev.lord.hotleak",
     "name": "HotLeak",
     "version": 3,
@@ -88,6 +106,24 @@
     ],
     "isAdult": true,
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.hotleak.sky"
+  },
+  {
+    "packageName": "dev.lord.internetchicks",
+    "name": "InternetChicks",
+    "version": 1,
+    "baseUrl": "https://internetchicks.com",
+    "description": "Browse and stream InternetChicks videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.internetchicks.sky"
   },
   {
     "packageName": "dev.lord.javHD",
@@ -146,6 +182,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.koreanpornmovie.sky"
   },
   {
+    "packageName": "dev.ngochoanggod.longvideos",
+    "name": "Longvideos",
+    "version": 1,
+    "baseUrl": "https://www.longvideos.xxx",
+    "description": "Browse and stream Longvideos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.ngochoanggod.longvideos.sky"
+  },
+  {
     "packageName": "dev.lord.missav",
     "name": "MissAV",
     "version": 4,
@@ -165,6 +219,24 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.missav.sky"
   },
   {
+    "packageName": "dev.lord.porn4fans",
+    "name": "Porn4fans",
+    "version": 1,
+    "baseUrl": "https://www.porn4fans.com",
+    "description": "Browse and stream Porn4fans videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.porn4fans.sky"
+  },
+  {
     "packageName": "dev.lord.pornhub",
     "name": "PornHub",
     "version": 1,
@@ -181,6 +253,24 @@
     ],
     "isAdult": true,
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.pornhub.sky"
+  },
+  {
+    "packageName": "dev.ngochoanggod.pornmz",
+    "name": "Pornmz",
+    "version": 1,
+    "baseUrl": "https://pornmz.com",
+    "description": "Browse and stream Pornmz videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.ngochoanggod.pornmz.sky"
   },
   {
     "packageName": "dev.lord.rusporn",
@@ -219,6 +309,60 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.thotdeep.sky"
   },
   {
+    "packageName": "dev.ngochoanggod.trendyporn",
+    "name": "TrendyPorn",
+    "version": 1,
+    "baseUrl": "https://www.trendyporn.com",
+    "description": "Browse and stream TrendyPorn videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.ngochoanggod.trendyporn.sky"
+  },
+  {
+    "packageName": "dev.lord.uncut99",
+    "name": "Uncut99",
+    "version": 1,
+    "baseUrl": "https://uncut99.com",
+    "description": "Browse and stream Uncut99 videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "hi"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.uncut99.sky"
+  },
+  {
+    "packageName": "dev.lord.whoreshub",
+    "name": "Whoreshub",
+    "version": 1,
+    "baseUrl": "https://www.whoreshub.com",
+    "description": "Browse and stream Whoreshub videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.whoreshub.sky"
+  },
+  {
     "packageName": "dev.lord.xhamster",
     "name": "xHamster",
     "version": 2,
@@ -253,6 +397,60 @@
     ],
     "isAdult": true,
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xxxparodyhd.sky"
+  },
+  {
+    "packageName": "dev.ngochoanggod.xmaza",
+    "name": "Xmaza",
+    "version": 1,
+    "baseUrl": "https://xmaza.net",
+    "description": "Browse and stream Xmaza videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "hi"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.ngochoanggod.xmaza.sky"
+  },
+  {
+    "packageName": "dev.ngochoanggod.ymaal",
+    "name": "YMaal",
+    "version": 1,
+    "baseUrl": "https://ymaal.co",
+    "description": "Browse and stream videos from YMaal",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "hi"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.ngochoanggod.ymaal.sky"
+  },
+  {
+    "packageName": "dev.lord.yespornplease",
+    "name": "YesPornPlease",
+    "version": 1,
+    "baseUrl": "https://yespornpleasexxx.com",
+    "description": "Browse and stream YesPornPlease videos",
+    "authors": [
+      "LordFA"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.yespornplease.sky"
   },
   {
     "packageName": "dev.akash.stars.anichi",
