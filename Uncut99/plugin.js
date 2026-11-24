@@ -1,0 +1,114 @@
+(function () {
+    const BASE_URL = manifest.baseUrl.replace(/\/$/, "");
+    const HEADERS = { "User-Agent": "Mozilla/5.0", "Referer": BASE_URL + "/" };
+    const CATEGORIES = [
+        { name: "Home", path: "/page/" },
+        { name: "MMS", path: "/category/model-mms/page/" },
+        { name: "Amateur", path: "/category/indian-amateur-porn/page/" }
+    ];
+    function absolute(url, parent) {
+        if (!url) return "";
+        if (/^https?:\/\//i.test(url)) return url;
+        if (url.startsWith("//")) return "https:" + url;
+        const origin = (parent || BASE_URL).match(/^https?:\/\/[^/]+/i)?.[0] || BASE_URL;
+        if (url.startsWith("/")) return origin + url;
+        const path = (parent || BASE_URL).split("?")[0];
+        return path.slice(0, path.lastIndexOf("/") + 1) + url;
+    }
+    function parseItems(doc) {
+        return Array.from(doc.querySelectorAll("div.videos-list > article.post")).map(card => {
+            const link = card.querySelector("a[title]") || card.querySelector("a");
+            const title = (link?.getAttribute("title") || "").trim();
+            const url = absolute(link?.getAttribute("href") || "", BASE_URL);
+            const poster = absolute(card.querySelector("a > div.post-thumbnail > div.inner-border > img")?.getAttribute("data-src") || "", BASE_URL);
+            if (!title || !url) return null;
+            return new MultimediaItem({ title, url, posterUrl: poster, type: "movie" });
+        }).filter(Boolean);
+    }
+    async function getHome(cb) {
+        const home = {};
+        try {
+            await Promise.all(CATEGORIES.map(async category => {
+                try {
+                    const res = await http_get(`${BASE_URL}${category.path}1/`, HEADERS);
+                    if (!res || res.status < 200 || res.status >= 400) return;
+                    const items = parseItems(await parseHtml(res.body));
+                    if (items.length) home[category.name] = items;
+                } catch (_) {}
+            }));
+            cb({ success: true, data: home });
+        } catch (e) {
+            cb({ success: false, errorCode: "HOME_ERROR", message: String(e?.message || e) });
+        }
+    }
+    async function search(query, cb) {
+        try {
+            const results = [];
+            for (let page = 1; page <= 5; page++) {
+                const res = await http_get(`${BASE_URL}/page/${page}?s=${encodeURIComponent(query)}`, HEADERS);
+                if (!res || res.status < 200 || res.status >= 400) break;
+                const items = parseItems(await parseHtml(res.body));
+                if (!items.length) break;
+                results.push(...items);
+            }
+            cb({ success: true, data: results });
+        } catch (e) {
+            cb({ success: false, errorCode: "SEARCH_ERROR", message: String(e?.message || e) });
+        }
+    }
+    async function load(url, cb) {
+        try {
+            const res = await http_get(url, HEADERS);
+            if (!res || res.status < 200 || res.status >= 400) return cb({ success: false, errorCode: "SITE_OFFLINE" });
+            const doc = await parseHtml(res.body);
+            const title = doc.querySelector("meta[property='og:title']")?.getAttribute("content")?.trim() || "";
+            const poster = absolute(doc.querySelector("meta[property='og:image']")?.getAttribute("content") || "", url);
+            const description = doc.querySelector("meta[property='og:description']")?.getAttribute("content")?.trim() || "";
+            if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "Missing title" });
+            cb({ success: true, data: new MultimediaItem({ title, url, posterUrl: poster, description, type: "movie",
+                episodes: [{ name: "Play", url, season: 1, episode: 1, posterUrl: poster || undefined }] }) });
+        } catch (e) {
+            cb({ success: false, errorCode: "PARSE_ERROR", message: String(e?.message || e) });
+        }
+    }
+    async function resolvePage(url, referer, depth, visited) {
+        if (!url || depth > 4 || visited.has(url)) return [];
+        if (/\.(?:m3u8|mp4)(?:[?#]|$)/i.test(url)) return [url];
+        visited.add(url);
+        const res = await http_get(url, { ...HEADERS, "Referer": referer || BASE_URL + "/" });
+        if (!res || !res.body) return [];
+        const direct = [];
+        const doc = await parseHtml(res.body);
+        for (const node of Array.from(doc.querySelectorAll("video source[src], video[src], video a[href]"))) {
+            const value = node.getAttribute("src") || node.getAttribute("href") || "";
+            if (value) direct.push(absolute(value, url));
+        }
+        const pattern = /(?:file|src|hls|url)\s*[:=]\s*["'](https?:\\?\/\\?\/[^"']+?\.(?:m3u8|mp4)(?:\?[^"']*)?)["']/gi;
+        for (const match of res.body.matchAll(pattern)) direct.push(match[1].replace(/\\\//g, "/"));
+        const clean = Array.from(new Set(direct.filter(value => /\.(?:m3u8|mp4)(?:[?#]|$)/i.test(value) || value.includes("/video/"))));
+        if (clean.length) return clean;
+        const iframe = doc.querySelector("iframe[src], iframe[data-src], iframe[data-litespeed-src]");
+        const next = iframe?.getAttribute("data-litespeed-src") || iframe?.getAttribute("data-src") || iframe?.getAttribute("src") || "";
+        return next ? resolvePage(absolute(next, url), url, depth + 1, visited) : [];
+    }
+    async function loadStreams(url, cb) {
+        try {
+            const res = await http_get(url, HEADERS);
+            if (!res || !res.body) return cb({ success: true, data: [] });
+            const doc = await parseHtml(res.body);
+            const embed = doc.querySelector("meta[itemprop='embedURL']")?.getAttribute("content") || "";
+            if (!embed) return cb({ success: true, data: [] });
+            const urls = await resolvePage(absolute(embed, url), url, 0, new Set());
+            const streams = urls.map(streamUrl => new StreamResult({
+                url: streamUrl, source: "Uncut99", headers: { "Referer": embed, "User-Agent": HEADERS["User-Agent"] }
+            }));
+            cb({ success: true, data: streams });
+        } catch (e) {
+            cb({ success: false, errorCode: "STREAM_ERROR", message: String(e?.message || e) });
+        }
+    }
+    globalThis.getHome = getHome;
+    globalThis.search = search;
+    globalThis.load = load;
+    globalThis.loadStreams = loadStreams;
+})();

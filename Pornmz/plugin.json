@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.ngochoanggod.pornmz",
+  "name": "Pornmz",
+  "version": 1,
+  "baseUrl": "https://pornmz.com",
+  "description": "Browse and stream Pornmz videos",
+  "authors": ["LordFA"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}

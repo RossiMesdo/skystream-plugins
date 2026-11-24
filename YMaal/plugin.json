@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.ngochoanggod.ymaal",
+  "name": "YMaal",
+  "version": 1,
+  "baseUrl": "https://ymaal.co",
+  "description": "Browse and stream videos from YMaal",
+  "authors": ["LordFA"],
+  "languages": ["hi"],
+  "categories": ["Movie"],
+  "isAdult": true
+}

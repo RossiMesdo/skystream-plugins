@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.ngochoanggod.trendyporn",
+  "name": "TrendyPorn",
+  "version": 1,
+  "baseUrl": "https://www.trendyporn.com",
+  "description": "Browse and stream TrendyPorn videos",
+  "authors": ["LordFA"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}

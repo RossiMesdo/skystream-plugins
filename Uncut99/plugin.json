@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.uncut99",
+  "name": "Uncut99",
+  "version": 1,
+  "baseUrl": "https://uncut99.com",
+  "description": "Browse and stream Uncut99 videos",
+  "authors": ["LordFA"],
+  "languages": ["hi"],
+  "categories": ["Movie"],
+  "isAdult": true
+}

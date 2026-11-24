@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.ngochoanggod.freepornvideos",
+  "name": "Free Porn Videos",
+  "version": 1,
+  "baseUrl": "https://www.freepornvideos.xxx",
+  "description": "Browse and stream Free Porn Videos",
+  "authors": ["LordFA"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}

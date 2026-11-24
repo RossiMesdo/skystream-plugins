@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.ngochoanggod.longvideos",
+  "name": "Longvideos",
+  "version": 1,
+  "baseUrl": "https://www.longvideos.xxx",
+  "description": "Browse and stream Longvideos",
+  "authors": ["LordFA"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}

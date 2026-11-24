@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.lord.whoreshub",
+  "name": "Whoreshub",
+  "version": 1,
+  "baseUrl": "https://www.whoreshub.com",
+  "description": "Browse and stream Whoreshub videos",
+  "authors": ["LordFA"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
