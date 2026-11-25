@@ -1,0 +1,16 @@
+{
+  "packageName": "dev.lord.rphang",
+  "name": "Rphang",
+  "version": 1,
+  "baseUrl": "https://rphang.fund",
+  "domains": [
+    { "name": "rphang.fund", "url": "https://rphang.fund" },
+    { "name": "rphang.vip", "url": "https://rphang.vip" },
+    { "name": "rphang.net", "url": "https://rphang.net" }
+  ],
+  "description": "Rphang video forum",
+  "authors": ["Lord"],
+  "languages": ["vi"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
