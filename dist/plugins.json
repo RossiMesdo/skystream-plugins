@@ -110,7 +110,7 @@
   {
     "packageName": "dev.lord.internetchicks",
     "name": "InternetChicks",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://internetchicks.com",
     "description": "Browse and stream InternetChicks videos",
     "authors": [
@@ -241,7 +241,7 @@
   {
     "packageName": "dev.lord.porn4fans",
     "name": "Porn4fans",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://www.porn4fans.com",
     "description": "Browse and stream Porn4fans videos",
     "authors": [
@@ -277,7 +277,7 @@
   {
     "packageName": "dev.ngochoanggod.pornmz",
     "name": "Pornmz",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://pornmz.com",
     "description": "Browse and stream Pornmz videos",
     "authors": [
@@ -349,7 +349,7 @@
   {
     "packageName": "dev.lord.uncut99",
     "name": "Uncut99",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://uncut99.com",
     "description": "Browse and stream Uncut99 videos",
     "authors": [
@@ -457,7 +457,7 @@
   {
     "packageName": "dev.lord.yespornplease",
     "name": "YesPornPlease",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://yespornpleasexxx.com",
     "description": "Browse and stream YesPornPlease videos",
     "authors": [
