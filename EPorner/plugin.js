@@ -157,37 +157,49 @@
 
             const body = res.body;
 
-            // CloudStream dùng WebViewResolver để intercept /xhr/video/{hash}
-            // Ta tìm video hash trực tiếp từ page source rồi gọi API thẳng
-            // Pattern: /xhr/video/{hash} xuất hiện trong script hoặc data attribute
-            const xhrMatch = body.match(/\/xhr\/video\/([a-zA-Z0-9]+)\//);
-            if (!xhrMatch) return cb({ success: true, data: [] });
+            // EPorner's player authorizes its current video API using the ID
+            // and hash embedded in the page.
+            const videoId = body.match(/EP\.video\.player\.vid\s*=\s*['"]([^'"]+)['"]/i)?.[1]
+                || body.match(/data-vid=['"]([^/'"]+)/i)?.[1];
+            const playerHash = body.match(/EP\.video\.player\.hash\s*=\s*['"]([a-f0-9]{32})['"]/i)?.[1];
+            if (!videoId || !playerHash) return cb({ success: true, data: [] });
 
-            const hash = xhrMatch[1];
-            const apiUrl = `${BASE_URL}/xhr/video/${hash}/?m=mp4`;
-
+            const authHash = playerHash.match(/.{8}/g)
+                .map(block => parseInt(block, 16).toString(36)).join("");
+            const query = new URLSearchParams({
+                hash: authHash,
+                domain: new URL(url).hostname,
+                pixelRatio: "1",
+                playerWidth: "1280",
+                playerHeight: "720",
+                fallback: "false",
+                embed: "false",
+                supportedFormats: "mp4",
+                _: String(Date.now())
+            });
+            const apiUrl = `${BASE_URL}/xhr/video/${encodeURIComponent(videoId)}/?${query.toString()}`;
             const apiRes = await http_get(apiUrl, {
                 ...HEADERS,
+                "Referer": url,
                 "X-Requested-With": "XMLHttpRequest"
             });
             if (!apiRes || !apiRes.body) return cb({ success: true, data: [] });
 
-            // CloudStream regex: "(\d{3,4}p)[^"]*"\s*:\s*\{\s*"labelShort"\s*:\s*"[^"]*"\s*,\s*"src"\s*:\s*"([^"]+)"
+            let response;
+            try { response = JSON.parse(apiRes.body); } catch (_) {
+                return cb({ success: true, data: [] });
+            }
+            const qualities = response?.sources?.mp4 || {};
             const streams = [];
-            const regex = /"(\d{3,4}p)[^"]*"\s*:\s*\{\s*"labelShort"\s*:\s*"[^"]*"\s*,\s*"src"\s*:\s*"([^"]+)"/g;
-            let m;
-            while ((m = regex.exec(apiRes.body)) !== null) {
-                const quality = m[1];
-                const videoUrl = m[2].replace(/\\/g, "");
-                // CloudStream: skip /dload/ URLs
-                if (videoUrl.includes("/dload/")) continue;
+            for (const [label, item] of Object.entries(qualities)) {
+                const videoUrl = item?.src;
+                if (!videoUrl || videoUrl.includes("/dload/")) continue;
                 streams.push(new StreamResult({
                     url: videoUrl,
-                    source: `EPorner ${quality}`,
-                    headers: { "Referer": BASE_URL + "/" }
+                    source: `EPorner ${item.labelShort || label}`,
+                    headers: { "Referer": url }
                 }));
             }
-
             // Sort chất lượng cao nhất lên đầu
             streams.sort((a, b) => {
                 const qa = parseInt(a.source.match(/\d+/)?.[0] || "0");

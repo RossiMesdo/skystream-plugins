@@ -1,8 +1,8 @@
 {
   "packageName": "dev.lord.missav",
   "name": "MissAV",
-  "version": 5,
-  "baseUrl": "https://missav.live",
+  "version": 6,
+  "baseUrl": "https://missav.ws",
   "domains": [
     { "name": "missav.live", "url": "https://missav.live" },
     { "name": "missav.ws", "url": "https://missav.ws" }

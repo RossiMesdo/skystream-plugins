@@ -134,6 +134,26 @@
             if (!res || !res.body) return cb({ success: true, data: [] });
 
             // Response có thể là JSON-wrapped {"html":"..."} hoặc raw text
+            try {
+                const payload = JSON.parse(res.body);
+                const iframeMatch = (payload.player || "").match(/<iframe[^>]+src=["']([^"']+)["']/i);
+                if (iframeMatch?.[1]) {
+                    const iframeUrl = fixUrl(iframeMatch[1]);
+                    if (typeof loadExtractor === "function") {
+                        const extracted = await loadExtractor(iframeUrl);
+                        if (Array.isArray(extracted) && extracted.length) {
+                            extracted.forEach(stream => { stream.source = "VLXX"; });
+                            return cb({ success: true, data: extracted });
+                        }
+                    }
+                    return cb({ success: true, data: [new StreamResult({
+                        url: iframeUrl,
+                        source: "VLXX Embed",
+                        headers: { ...HEADERS, Referer: url }
+                    })] });
+                }
+            } catch (_) {}
+
             let text = res.body;
             try {
                 const json = JSON.parse(text);

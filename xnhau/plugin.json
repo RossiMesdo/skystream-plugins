@@ -1,13 +1,15 @@
 {
   "packageName": "dev.lord.xnhau",
   "name": "xNhau",
-  "version": 2,
-  "baseUrl": "https://xnhau.meme",
+  "version": 3,
+  "baseUrl": "https://xnhau.plus",
   "domains": [
-    { "name": "xnhau.meme (current)", "url": "https://xnhau.meme" },
-    { "name": "xnhau.com (redirect)", "url": "https://xnhau.com" },
-    { "name": "xnhau.la (older domain)", "url": "https://xnhau.la" },
-    { "name": "xnhau.bio (older domain)", "url": "https://xnhau.bio" }
+    { "name": "xnhau.plus (current)", "url": "https://xnhau.plus" },
+    { "name": "xnhau.meme", "url": "https://xnhau.meme" },
+    { "name": "xnhau.moda", "url": "https://xnhau.moda" },
+    { "name": "xnhau.com", "url": "https://xnhau.com" },
+    { "name": "xnhau.la", "url": "https://xnhau.la" },
+    { "name": "xnhau.bio", "url": "https://xnhau.bio" }
   ],
   "description": "Vietnamese adult video provider",
   "authors": ["Lord"],

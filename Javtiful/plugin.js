@@ -190,32 +190,40 @@
 
     async function loadStreams(url, cb) {
         try {
-            const res = await http_get(url, HEADERS);
-            if (!res || !res.body) return cb({ success: true, data: [] });
-            const doc = await parseHtml(res.body);
-            const token = doc.querySelector("#token_full")?.getAttribute("data-csrf-token") || "";
-            const playerScript = Array.from(doc.querySelectorAll("script"))
-                .map(script => script.textContent || "")
-                .find(script => script.includes("vcpov")) || "";
-            const videoId = playerScript.match(/vcpov\s*=\s*`([^`]+)`/)?.[1] || "";
+            const pageRes = await http_get(url, HEADERS);
+            if (!pageRes || !pageRes.body) return cb({ success: true, data: [] });
+
+            const videoId = url.match(/\/(?:[a-z]{2}\/)?video\/(\d+)/i)?.[1]
+                || pageRes.body.match(/\/embed\/(\d+)/i)?.[1];
             if (!videoId) return cb({ success: true, data: [] });
 
-            const form = `video_id=${encodeURIComponent(videoId)}&pid_c=&token=${encodeURIComponent(token)}`;
-            const apiRes = await http_post(`${BASE_URL}/ajax/get_cdn`, {
-                ...HEADERS,
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "X-Requested-With": "XMLHttpRequest",
-                "Referer": url
-            }, form);
-            const payload = JSON.parse(apiRes?.body || "{}");
-            const playlist = typeof payload.playlists === "string" ? payload.playlists : "";
-            if (!/^https?:\/\//i.test(playlist)) return cb({ success: true, data: [] });
+            const embedUrl = `${BASE_URL}/embed/${videoId}`;
+            const embedRes = await http_get(embedUrl, { ...HEADERS, "Referer": url });
+            if (!embedRes || !embedRes.body) return cb({ success: true, data: [] });
+            const configText = embedRes.body.match(/<script[^>]+id=["']watch-config["'][^>]*>([\s\S]*?)<\/script>/i)?.[1];
+            if (!configText) return cb({ success: true, data: [] });
 
-            cb({ success: true, data: [new StreamResult({
-                url: playlist,
-                source: "Javtiful",
-                headers: { "Referer": BASE_URL + "/" }
-            })] });
+            const config = JSON.parse(configText);
+            const endpoint = config?.playback?.endpoint;
+            const ticket = config?.playback?.ticket;
+            if (!endpoint || !ticket) return cb({ success: true, data: [] });
+
+            const playbackRes = await http_post(new URL(endpoint, BASE_URL).href, {
+                ...HEADERS,
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                "Accept": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": embedUrl
+            }, `ticket=${encodeURIComponent(ticket)}`);
+            const playback = JSON.parse(playbackRes?.body || "{}");
+            const streams = (playback.sources || []).filter(source => source?.src).map(source => new StreamResult({
+                url: fixUrl(source.src),
+                source: `Javtiful ${source.label || source.size || ""}`.trim(),
+                quality: Number(source.size) || 0,
+                headers: { "Referer": embedUrl, "User-Agent": HEADERS["User-Agent"] }
+            }));
+            return cb({ success: true, data: streams });
+
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
         }

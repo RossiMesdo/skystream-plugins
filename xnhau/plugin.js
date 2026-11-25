@@ -6,7 +6,7 @@
      * Language: Vietnamese | Type: NSFW
      */
 
-    const BASE_URL = (typeof manifest !== "undefined" && manifest?.baseUrl) || "https://xnhau.meme";
+    const BASE_URL = (typeof manifest !== "undefined" && manifest?.baseUrl) || "https://xnhau.plus";
     const STORAGE_URL = "https://xnhaustorage.com";
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
     const HEADERS = { "User-Agent": UA, "Referer": BASE_URL };
@@ -242,6 +242,26 @@
                 return cb({ success: false, errorCode: "STREAM_ERROR", message: "Failed to fetch page" });
 
             const html = res.body;
+            // New xNhau pages include signed MP4 URLs directly in the player markup.
+            const directUrls = html
+                .replace(/\\\//g, "/")
+                .replace(/&amp;/g, "&")
+                .match(/https?:\/\/[^"'<>\s]*\/get_file\/[^"'<>\s]+?\.mp4\/?(?:\?[^"'<>\s]*)?/gi) || [];
+            const directStreams = [];
+            const seenDirect = new Set();
+            for (const streamUrl of directUrls) {
+                const cleanUrl = streamUrl.replace(/[),;]+$/, "");
+                if (seenDirect.has(cleanUrl)) continue;
+                seenDirect.add(cleanUrl);
+                const quality = cleanUrl.match(/_(\d{3,4})p\.mp4/i)?.[1];
+                directStreams.push(new StreamResult({
+                    url: cleanUrl,
+                    source: quality ? `xNhau ${quality}p` : "xNhau",
+                    quality: quality ? parseInt(quality, 10) : 0,
+                    headers: { "Referer": url, "User-Agent": UA }
+                }));
+            }
+            if (directStreams.length) return cb({ success: true, data: directStreams });
 
             // 1. Lấy videoId từ pageContext hoặc URL
             const pageContextStr = findJsVarContent(html, "pageContext");

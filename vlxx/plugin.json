@@ -1,9 +1,10 @@
 {
   "packageName": "dev.lord.vlxx",
   "name": "Vlxx",
-  "version": 5,
-  "baseUrl": "https://vlxx.sex",
+  "version": 6,
+  "baseUrl": "https://vlxx.net",
   "domains": [
+    { "name": "vlxx.net", "url": "https://vlxx.net" },
     { "name": "vlxx.sex", "url": "https://vlxx.sex" },
     { "name": "vlxx.moi", "url": "https://vlxx.moi" }
   ],
