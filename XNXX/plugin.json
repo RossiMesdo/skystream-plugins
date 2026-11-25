@@ -1,0 +1,14 @@
+{
+  "packageName": "dev.codex.xnxx",
+  "name": "XNXX",
+  "version": 1,
+  "baseUrl": "https://www.xnxx.com",
+  "domains": [
+    { "name": "www.xnxx.com", "url": "https://www.xnxx.com" }
+  ],
+  "description": "XNXX video provider",
+  "authors": ["Codex"],
+  "languages": ["en"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
