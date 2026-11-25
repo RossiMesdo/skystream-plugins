@@ -142,13 +142,7 @@
                     tags: tags.length ? tags : undefined,
                     cast: cast.length ? cast : undefined,
                     recommendations: recommendations.length ? recommendations : undefined,
-                    episodes: [{
-                        name: "Play",
-                        url,
-                        season: 1,
-                        episode: 1,
-                        posterUrl: poster || undefined
-                    }]
+                    episodes: [new Episode({ name: "Play", url, season: 1, episode: 1, posterUrl: poster || undefined })]
                 })
             });
         } catch (e) {

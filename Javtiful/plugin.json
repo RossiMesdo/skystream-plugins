@@ -1,9 +1,9 @@
 {
   "packageName": "dev.lord.javtiful",
   "name": "Javtiful",
-  "version": 1,
+  "version": 2,
   "baseUrl": "https://javtiful.com",
-  "description": "Javtiful - JAV streaming site",
+  "description": "Javtiful video provider",
   "authors": ["Lord"],
   "languages": ["en"],
   "categories": ["Movie"],

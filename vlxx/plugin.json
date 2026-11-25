@@ -1,9 +1,13 @@
 {
   "packageName": "dev.lord.vlxx",
   "name": "Vlxx",
-  "version": 4,
-  "baseUrl": "https://vlxx.moi",
-  "description": "Vlxx - Phim sex Việt Nam",
+  "version": 5,
+  "baseUrl": "https://vlxx.sex",
+  "domains": [
+    { "name": "vlxx.sex", "url": "https://vlxx.sex" },
+    { "name": "vlxx.moi", "url": "https://vlxx.moi" }
+  ],
+  "description": "Vietnamese adult video provider",
   "authors": ["Lord"],
   "languages": ["vi"],
   "categories": ["NSFW"],

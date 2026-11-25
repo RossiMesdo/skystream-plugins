@@ -185,15 +185,14 @@
             const streams = [];
 
             doc.querySelectorAll("script").forEach(script => {
-                const text = script.textContent || "";
-                if (!text.includes("html5player") && !text.includes("HTML5Player")) return;
+                const text = (script.textContent || "").replace(/\\\//g, "/");
 
                 const hlsMatch = text.match(/html5player\.setVideoHLS\('([^']+)'\)/i)
                     || text.match(/\.setVideoHLS\('([^']+)'\)/i);
                 if (hlsMatch?.[1]) streams.push(new StreamResult({
                     url: hlsMatch[1].trim(),
                     source: "XVideos HLS",
-                    quality: "HLS",
+                    quality: 0,
                     headers: { "Referer": MAIN_URL, "User-Agent": UA }
                 }));
 
@@ -202,7 +201,7 @@
                 if (highMatch?.[1]) streams.push(new StreamResult({
                     url: highMatch[1].trim(),
                     source: "XVideos High",
-                    quality: "High",
+                    quality: 1080,
                     headers: { "Referer": MAIN_URL, "User-Agent": UA }
                 }));
 
@@ -211,7 +210,7 @@
                 if (lowMatch?.[1]) streams.push(new StreamResult({
                     url: lowMatch[1].trim(),
                     source: "XVideos Low",
-                    quality: "Low",
+                    quality: 480,
                     headers: { "Referer": MAIN_URL, "User-Agent": UA }
                 }));
 
@@ -219,15 +218,34 @@
                 if (contentUrlMatch?.[1]) streams.push(new StreamResult({
                     url: contentUrlMatch[1].replace(/\\\//g, "/"),
                     source: "XVideos Auto",
-                    quality: "Auto",
+                    quality: 0,
                     headers: { "Referer": MAIN_URL, "User-Agent": UA }
                 }));
+
+                const urls = text.match(/https?:\/\/[^'"\s<>]+/g) || [];
+                urls.forEach(videoUrl => {
+                    if (!/\.(?:m3u8|mp4|mkv)(?:[?#]|$)/i.test(videoUrl)) return;
+                    streams.push(new StreamResult({
+                        url: videoUrl.replace(/[),;]+$/, ""),
+                        source: "XVideos",
+                        quality: 0,
+                        headers: { "Referer": MAIN_URL, "User-Agent": UA }
+                    }));
+                });
             });
 
-            if (!streams.length)
+            const unique = [];
+            const seen = new Set();
+            streams.forEach(stream => {
+                if (!stream.url || seen.has(stream.url)) return;
+                seen.add(stream.url);
+                unique.push(stream);
+            });
+
+            if (!unique.length)
                 return cb({ success: false, errorCode: "STREAM_ERROR", message: "No streams found" });
 
-            cb({ success: true, data: streams });
+            cb({ success: true, data: unique });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
         }

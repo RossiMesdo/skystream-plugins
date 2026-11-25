@@ -109,7 +109,9 @@
             const doc = await parseHtml(res.body);
 
             // CloudStream: div.with-player-container h1
-            const title = doc.querySelector("div.with-player-container h1")?.textContent?.trim() || "";
+            const title = doc.querySelector("div.with-player-container h1")?.textContent?.trim()
+                || doc.querySelector("meta[property='og:title']")?.getAttribute("content")?.trim()
+                || "";
             if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "No title" });
 
             // CloudStream: div.xp-preload-image style → substringAfter("https:").substringBefore("');")
@@ -161,13 +163,7 @@
                     tags: tags.length ? tags : undefined,
                     cast: cast.length ? cast : undefined,
                     recommendations: recommendations.length ? recommendations : undefined,
-                    episodes: [{
-                        name: "Play",
-                        url: `${url}?geo=us`,
-                        season: 1,
-                        episode: 1,
-                        posterUrl: poster || undefined
-                    }]
+                    episodes: [new Episode({ name: "Play", url: `${url}?geo=us`, season: 1, episode: 1, posterUrl: poster || undefined })]
                 })
             });
         } catch (e) {
@@ -180,19 +176,33 @@
             const res = await http_get(url, HEADERS);
             if (!res || !res.body) return cb({ success: true, data: [] });
             const doc = await parseHtml(res.body);
+            const script = doc.querySelector("script#initials-script")?.textContent?.trim() || "";
+            if (!script) return cb({ success: true, data: [] });
 
-            // CloudStream: chỉ dùng link[rel=preload][as=fetch] chứa .m3u8
+            const jsonText = script.replace(/^window\.initials\s*=\s*/, "").replace(/;\s*$/, "");
+            const initialData = JSON.parse(jsonText);
+            const sources = initialData?.xplayerSettings?.sources || {};
             const streams = [];
-            doc.querySelectorAll("link[rel='preload'][as='fetch']").forEach(el => {
-                const href = el.getAttribute("href") || "";
-                if (!href.includes(".m3u8")) return;
-                streams.push(new StreamResult({
-                    url: fixUrl(href),
-                    source: "xHamster",
-                    headers: { "Referer": url }
-                }));
-            });
+            const hlsUrl = sources.hls?.h264?.url;
+            if (hlsUrl) streams.push(new StreamResult({
+                url: fixUrl(hlsUrl),
+                source: "xHamster HLS",
+                headers: { "Referer": url }
+            }));
 
+            const mp4Sources = sources.standard?.h264;
+            if (Array.isArray(mp4Sources)) {
+                mp4Sources.forEach(item => {
+                    if (!item?.url) return;
+                    const quality = parseInt(String(item.quality || "").replace(/\D/g, "")) || 0;
+                    streams.push(new StreamResult({
+                        url: fixUrl(item.url),
+                        source: quality ? `xHamster ${quality}p` : "xHamster MP4",
+                        quality,
+                        headers: { "Referer": url }
+                    }));
+                });
+            }
             cb({ success: true, data: streams });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });

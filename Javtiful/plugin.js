@@ -93,7 +93,7 @@
     async function search(query, cb) {
         try {
             // CloudStream: page 1 = /search?q=query, page 2+ = /search?page=N&q=query
-            const res = await http_get(`${BASE_URL}/search?q=${encodeURIComponent(query)}`, HEADERS);
+            const res = await http_get(`${BASE_URL}/search/videos?search_query=${encodeURIComponent(query)}`, HEADERS);
             if (!res || res.status !== 200) return cb({ success: true, data: [] });
             const doc = await parseHtml(res.body);
             cb({ success: true, data: parseItems(doc) });
@@ -109,7 +109,8 @@
             const doc = await parseHtml(res.body);
 
             // CloudStream: div.front-watch-title h1
-            const title = doc.querySelector("div.front-watch-title h1")?.textContent?.trim();
+            const title = doc.querySelector("div.front-watch-title h1")?.textContent?.trim()
+                || doc.querySelector("meta[property='og:title']")?.getAttribute("content")?.trim();
             if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "No title" });
 
             const poster = fixUrl(doc.querySelector("meta[property='og:image']")?.getAttribute("content") || "");
@@ -191,32 +192,30 @@
         try {
             const res = await http_get(url, HEADERS);
             if (!res || !res.body) return cb({ success: true, data: [] });
+            const doc = await parseHtml(res.body);
+            const token = doc.querySelector("#token_full")?.getAttribute("data-csrf-token") || "";
+            const playerScript = Array.from(doc.querySelectorAll("script"))
+                .map(script => script.textContent || "")
+                .find(script => script.includes("vcpov")) || "";
+            const videoId = playerScript.match(/vcpov\s*=\s*`([^`]+)`/)?.[1] || "";
+            if (!videoId) return cb({ success: true, data: [] });
 
-            // CloudStream: parse JSON từ <script id="frontWatchConfig" type="application/json">
-            const raw = res.body
-                .split(`id="frontWatchConfig" type="application/json">`)[1]
-                ?.split("</script>")[0]
-                ?.trim();
+            const form = `video_id=${encodeURIComponent(videoId)}&pid_c=&token=${encodeURIComponent(token)}`;
+            const apiRes = await http_post(`${BASE_URL}/ajax/get_cdn`, {
+                ...HEADERS,
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": url
+            }, form);
+            const payload = JSON.parse(apiRes?.body || "{}");
+            const playlist = typeof payload.playlists === "string" ? payload.playlists : "";
+            if (!/^https?:\/\//i.test(playlist)) return cb({ success: true, data: [] });
 
-            if (!raw) return cb({ success: true, data: [] });
-
-            let config;
-            try { config = JSON.parse(raw); } catch (e) { return cb({ success: true, data: [] }); }
-
-            const sources = config?.playerSources;
-            if (!Array.isArray(sources) || sources.length === 0) return cb({ success: true, data: [] });
-
-            // Sort: quality cao nhất lên đầu
-            const streams = sources
-                .filter(s => s.src)
-                .sort((a, b) => (b.size || 0) - (a.size || 0))
-                .map(s => new StreamResult({
-                    url: s.src,
-                    source: s.size ? `Javtiful ${s.size}p` : "Javtiful",
-                    headers: { "Referer": BASE_URL + "/" }
-                }));
-
-            cb({ success: true, data: streams });
+            cb({ success: true, data: [new StreamResult({
+                url: playlist,
+                source: "Javtiful",
+                headers: { "Referer": BASE_URL + "/" }
+            })] });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
         }

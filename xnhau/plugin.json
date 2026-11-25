@@ -1,9 +1,15 @@
 {
   "packageName": "dev.lord.xnhau",
   "name": "xNhau",
-  "version": 1,
-  "baseUrl": "https://xnhau.bio",
-  "description": "xNhau - Phim người lớn tiếng Việt",
+  "version": 2,
+  "baseUrl": "https://xnhau.meme",
+  "domains": [
+    { "name": "xnhau.meme (current)", "url": "https://xnhau.meme" },
+    { "name": "xnhau.com (redirect)", "url": "https://xnhau.com" },
+    { "name": "xnhau.la (older domain)", "url": "https://xnhau.la" },
+    { "name": "xnhau.bio (older domain)", "url": "https://xnhau.bio" }
+  ],
+  "description": "Vietnamese adult video provider",
   "authors": ["Lord"],
   "languages": ["vi"],
   "categories": ["Movie"],

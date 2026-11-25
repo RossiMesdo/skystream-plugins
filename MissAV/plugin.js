@@ -153,7 +153,8 @@
             if (!res || res.status !== 200) return cb({ success: false, errorCode: "SITE_OFFLINE" });
             const doc = await parseHtml(res.body);
 
-            const title = doc.querySelector("h1.text-base")?.textContent?.trim();
+            const title = doc.querySelector("h1.text-base")?.textContent?.trim()
+                || doc.querySelector("meta[property='og:title']")?.getAttribute("content")?.trim();
             if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "No title" });
 
             const poster = fixUrl(doc.querySelector("meta[property='og:image']")?.getAttribute("content") || "");
@@ -226,6 +227,18 @@
             // Tầng 2: unpack P.A.C.K.E.R rồi tìm UUID — đây là cách CloudStream làm
             const unpacked = unpackPacker(body);
             if (unpacked) {
+                const directSource = unpacked.match(/source\s*=\s*['"]([^'"]+)['"]/i)?.[1];
+                if (directSource && /^https?:\/\//i.test(directSource)) {
+                    return cb({
+                        success: true,
+                        data: [new StreamResult({
+                            url: directSource,
+                            source: "MissAV",
+                            headers: { "Referer": BASE_URL + "/" }
+                        })]
+                    });
+                }
+
                 // Ưu tiên tìm surrit.com URL sau khi unpack
                 const surritUnpacked = unpacked.match(/surrit\.com\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/);
                 if (surritUnpacked) {

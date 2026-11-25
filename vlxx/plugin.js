@@ -43,7 +43,7 @@
             if (!res || res.status !== 200) return cb({ success: false, errorCode: "SITE_OFFLINE" });
             const doc = await parseHtml(res.body);
             const items = parseItems(doc);
-            cb({ success: true, data: { "🏠 Trang Chủ": items } });
+            cb({ success: true, data: { "Latest": items } });
         } catch (e) {
             cb({ success: false, errorCode: "SITE_OFFLINE", message: e.message });
         }
@@ -84,7 +84,7 @@
                 success: true,
                 data: new MultimediaItem({
                     title, url, posterUrl: poster, type: "movie", description,
-                    episodes: [{ name: "Play", url, season: 1, episode: 1, posterUrl: poster || undefined }]
+                    episodes: [new Episode({ name: "Play", url, season: 1, episode: 1, posterUrl: poster || undefined })]
                 })
             });
         } catch (e) {
