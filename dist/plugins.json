@@ -2,11 +2,11 @@
   {
     "packageName": "dev.lord.123av",
     "name": "123AV",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://123av.com",
     "description": "123AV Japanese video provider",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "en",
@@ -75,11 +75,11 @@
   {
     "packageName": "dev.lord.eporner",
     "name": "EPorner",
-    "version": 3,
+    "version": 4,
     "baseUrl": "https://www.eporner.com",
     "description": "EPorner - Free HD porn videos",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "en"
@@ -111,7 +111,7 @@
   {
     "packageName": "dev.lord.heovl",
     "name": "HeoVL",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://heovl.im",
     "domains": [
       {
@@ -133,7 +133,7 @@
     ],
     "description": "Vietnamese adult video provider",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "vi"
@@ -165,11 +165,11 @@
   {
     "packageName": "dev.lord.internetchicks",
     "name": "InternetChicks",
-    "version": 4,
+    "version": 5,
     "baseUrl": "https://internetchicks.com",
     "description": "Browse and stream InternetChicks videos",
     "authors": [
-      "LordFA"
+      "Codex"
     ],
     "languages": [
       "en"
@@ -183,7 +183,7 @@
   {
     "packageName": "dev.lord.javHD",
     "name": "JavHD",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://javhd.icu",
     "domains": [
       {
@@ -197,7 +197,7 @@
     ],
     "description": "JAV HD video provider",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "en",
@@ -213,11 +213,11 @@
   {
     "packageName": "dev.lord.javtiful",
     "name": "Javtiful",
-    "version": 3,
+    "version": 4,
     "baseUrl": "https://javtiful.com",
     "description": "Javtiful video provider",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "en"
@@ -267,7 +267,7 @@
   {
     "packageName": "dev.lord.missav",
     "name": "MissAV",
-    "version": 6,
+    "version": 7,
     "baseUrl": "https://missav.ws",
     "domains": [
       {
@@ -281,7 +281,7 @@
     ],
     "description": "Japanese adult video with subtitles",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "ja",
@@ -296,11 +296,11 @@
   {
     "packageName": "dev.lord.porn4fans",
     "name": "Porn4fans",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://www.porn4fans.com",
     "description": "Browse and stream Porn4fans videos",
     "authors": [
-      "LordFA"
+      "Codex"
     ],
     "languages": [
       "en"
@@ -332,11 +332,11 @@
   {
     "packageName": "dev.ngochoanggod.pornmz",
     "name": "Pornmz",
-    "version": 3,
+    "version": 4,
     "baseUrl": "https://pornmz.com",
     "description": "Browse and stream Pornmz videos",
     "authors": [
-      "LordFA"
+      "Codex"
     ],
     "languages": [
       "en"
@@ -350,7 +350,7 @@
   {
     "packageName": "dev.lord.rphang",
     "name": "Rphang",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://rphang.fund",
     "domains": [
       {
@@ -368,7 +368,7 @@
     ],
     "description": "Rphang video forum",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "vi"
@@ -436,7 +436,7 @@
   {
     "packageName": "dev.lord.uncut99",
     "name": "Uncut99",
-    "version": 4,
+    "version": 5,
     "baseUrl": "https://uncut99.me",
     "domains": [
       {
@@ -450,7 +450,7 @@
     ],
     "description": "Browse and stream Uncut99 videos",
     "authors": [
-      "LordFA"
+      "Codex"
     ],
     "languages": [
       "hi"
@@ -482,11 +482,11 @@
   {
     "packageName": "dev.lord.xhamster",
     "name": "xHamster",
-    "version": 3,
+    "version": 4,
     "baseUrl": "https://xhamster.com",
     "description": "xHamster - Adult video site",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "en"
@@ -518,7 +518,7 @@
   {
     "packageName": "dev.ngochoanggod.xmaza",
     "name": "Xmaza",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://xmaza.movie",
     "domains": [
       {
@@ -532,7 +532,7 @@
     ],
     "description": "Browse and stream Xmaza videos",
     "authors": [
-      "LordFA"
+      "Codex"
     ],
     "languages": [
       "hi"
@@ -564,11 +564,11 @@
   {
     "packageName": "dev.lord.yespornplease",
     "name": "YesPornPlease",
-    "version": 3,
+    "version": 4,
     "baseUrl": "https://yespornpleasexxx.com",
     "description": "Browse and stream YesPornPlease videos",
     "authors": [
-      "LordFA"
+      "Codex"
     ],
     "languages": [
       "en"
@@ -846,7 +846,7 @@
   {
     "packageName": "dev.lord.vlxx",
     "name": "Vlxx",
-    "version": 6,
+    "version": 7,
     "baseUrl": "https://vlxx.net",
     "domains": [
       {
@@ -864,7 +864,7 @@
     ],
     "description": "Vietnamese adult video provider",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "vi"
@@ -914,7 +914,7 @@
   {
     "packageName": "dev.lord.xnhau",
     "name": "xNhau",
-    "version": 3,
+    "version": 4,
     "baseUrl": "https://xnhau.plus",
     "domains": [
       {
@@ -944,7 +944,7 @@
     ],
     "description": "Vietnamese adult video provider",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "vi"
@@ -958,11 +958,11 @@
   {
     "packageName": "dev.lord.xvideos",
     "name": "XVideos",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://www.xvideos.com",
     "description": "XVideos - Adult video streaming with full categories.",
     "authors": [
-      "Lord"
+      "Codex"
     ],
     "languages": [
       "en"
