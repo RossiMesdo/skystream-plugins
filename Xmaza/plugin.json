@@ -1,8 +1,12 @@
 {
   "packageName": "dev.ngochoanggod.xmaza",
   "name": "Xmaza",
-  "version": 1,
-  "baseUrl": "https://xmaza.net",
+  "version": 2,
+  "baseUrl": "https://xmaza.movie",
+  "domains": [
+    { "name": "xmaza.movie", "url": "https://xmaza.movie" },
+    { "name": "xmaza.net", "url": "https://xmaza.net" }
+  ],
   "description": "Browse and stream Xmaza videos",
   "authors": ["LordFA"],
   "languages": ["hi"],

@@ -101,6 +101,17 @@
         try {
             const pageRes = await http_get(url, HEADERS);
             if (!pageRes || !pageRes.body) return cb({ success: true, data: [] });
+            const decodedPage = pageRes.body
+                .replace(/&quot;/gi, '"').replace(/&#0*39;|&apos;/gi, "'")
+                .replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+                .replace(/\\\//g, "/");
+            const directUrls = Array.from(decodedPage.matchAll(/<(?:source|video)\b[^>]*\bsrc=["']([^"']+\.(?:m3u8|mp4)(?:\?[^"']*)?)["']/gi))
+                .map(match => absolute(match[1].replace(/&amp;/g, "&"), url));
+            if (directUrls.length) {
+                return cb({ success: true, data: Array.from(new Set(directUrls)).map(streamUrl => new StreamResult({
+                    url: streamUrl, source: "YesPornPlease", headers: { "Referer": url, "User-Agent": HEADERS["User-Agent"] }
+                })) });
+            }
             const page = await parseHtml(pageRes.body);
             const iframe = page.querySelector("#post > div.wp-video > div > iframe");
             const embed = iframe?.getAttribute("data-litespeed-src") || iframe?.getAttribute("src") || "";
@@ -109,7 +120,7 @@
             const streams = [];
             if (typeof loadExtractor === "function") {
                 try {
-                    const extracted = await loadExtractor(embedUrl, url);
+                    const extracted = await loadExtractor(embedUrl);
                     if (Array.isArray(extracted)) streams.push(...extracted);
                 } catch (_) {}
             }

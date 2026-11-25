@@ -1,8 +1,12 @@
 {
   "packageName": "dev.lord.uncut99",
   "name": "Uncut99",
-  "version": 2,
-  "baseUrl": "https://uncut99.com",
+  "version": 3,
+  "baseUrl": "https://uncut99.me",
+  "domains": [
+    { "name": "uncut99.me", "url": "https://uncut99.me" },
+    { "name": "uncut99.com", "url": "https://uncut99.com" }
+  ],
   "description": "Browse and stream Uncut99 videos",
   "authors": ["LordFA"],
   "languages": ["hi"],

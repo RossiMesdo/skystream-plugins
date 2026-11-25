@@ -96,13 +96,13 @@
             const res = await http_get(url, HEADERS);
             if (!res || !res.body) return cb({ success: true, data: [] });
             const doc = await parseHtml(res.body);
-            const embed = doc.querySelector("meta[itemprop='embedURL']")?.getAttribute("content") || "";
+            const embed = doc.querySelector("meta[itemprop='embedUrl'], meta[itemprop='embedURL']")?.getAttribute("content") || "";
             if (!embed) return cb({ success: true, data: [] });
             const embedUrl = absolute(embed, url);
             const streams = [];
             if (typeof loadExtractor === "function") {
                 try {
-                    const extracted = await loadExtractor(embedUrl, url);
+                    const extracted = await loadExtractor(embedUrl);
                     if (Array.isArray(extracted)) streams.push(...extracted);
                 } catch (_) {}
             }

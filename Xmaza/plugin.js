@@ -3,13 +3,14 @@
     const HEADERS = { "User-Agent": "Mozilla/5.0", "Referer": BASE_URL + "/" };
     const CATEGORIES = [
         { name: "Home", path: "" },
-        { name: "Ullu", path: "ullu-c14" },
-        { name: "Triflicks", path: "triflicks" },
-        { name: "PrimePlay", path: "primeplay-c1" },
-        { name: "Kooku", path: "kooku" },
-        { name: "Atragii", path: "atragii-c8" },
-        { name: "Rabbit", path: "rabbit" },
-        { name: "Hunters", path: "hunters" }
+        { name: "Ullu", path: "category/ullu" },
+        { name: "Atrangii", path: "category/atrangii" },
+        { name: "Feel", path: "category/feel" },
+        { name: "Uncut", path: "category/uncut" },
+        { name: "MoodX", path: "category/moodx" },
+        { name: "Hulchul", path: "category/hulchul" },
+        { name: "Hitprime", path: "category/hitprime" },
+        { name: "Besharams", path: "category/besharams" }
     ];
 
     function fixUrl(url) {
@@ -20,12 +21,12 @@
     }
 
     function parseItems(doc) {
-        return Array.from(doc.querySelectorAll("div.videos a")).map(link => {
+        return Array.from(doc.querySelectorAll("a.video[href], div.videos a[href]")).map(link => {
             const title = (link.getAttribute("title") || "").trim();
             const url = fixUrl(link.getAttribute("href") || "");
             const style = link.getAttribute("style") || "";
             const match = style.match(/background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i);
-            const poster = fixUrl(match?.[1] || link.querySelector("img")?.getAttribute("src") || "");
+            const poster = fixUrl(link.getAttribute("data-bg") || match?.[1] || link.querySelector("img")?.getAttribute("data-src") || link.querySelector("img")?.getAttribute("src") || "");
             if (!title || !url) return null;
             return new MultimediaItem({ title, url, posterUrl: poster, type: "movie" });
         }).filter(Boolean);
@@ -36,8 +37,8 @@
         try {
             await Promise.all(CATEGORIES.map(async category => {
                 try {
-                    const path = category.path ? `/${category.path}` : "";
-                    const res = await http_get(`${BASE_URL}${path}/page/1`, HEADERS);
+                    const path = category.path ? `/${category.path}/` : "/";
+                    const res = await http_get(`${BASE_URL}${path}`, HEADERS);
                     if (!res || res.status < 200 || res.status >= 400) return;
                     const items = parseItems(await parseHtml(res.body));
                     if (items.length) home[category.name] = items;

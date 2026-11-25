@@ -3,10 +3,10 @@
     const HEADERS = { "User-Agent": "Mozilla/5.0", "Referer": BASE_URL + "/" };
     const CATEGORIES = [
         { name: "Home", path: "" },
-        { name: "Brazzers", path: "/pmvideo/s/brazzers" },
-        { name: "BangBros", path: "/pmvideo/s/bangbros" },
-        { name: "NaughtyAmerica", path: "/pmvideo/s/naughtyamerica" },
-        { name: "RealityKings", path: "/pmvideo/s/realitykings" }
+        { name: "Brazzers", path: "/pmvideo/c/brazzers" },
+        { name: "BangBros", path: "/pmvideo/c/bangbros" },
+        { name: "NaughtyAmerica", path: "/pmvideo/c/naughtyamerica" },
+        { name: "RealityKings", path: "/pmvideo/c/realitykings" }
     ];
     function fixUrl(url) {
         if (!url) return "";
@@ -23,12 +23,26 @@
             return new MultimediaItem({ title, url, posterUrl: poster, type: "movie" });
         }).filter(Boolean);
     }
+    async function streamFromCleanTubePlayer(iframeUrl) {
+        try {
+            const encoded = new URL(iframeUrl).searchParams.get("q");
+            if (!encoded || typeof atob !== "function") return "";
+            const payload = new URLSearchParams(atob(encoded));
+            const playerHtml = payload.get("tag") || "";
+            const player = await parseHtml(playerHtml);
+            const source = player.querySelector("video source[src], video[src]");
+            return fixUrl(source?.getAttribute("src") || "");
+        } catch (_) {
+            return "";
+        }
+    }
     async function getHome(cb) {
         const home = {};
         try {
             await Promise.all(CATEGORIES.map(async category => {
                 try {
-                    const res = await http_get(`${BASE_URL}${category.path}/page/1/`, HEADERS);
+                    const categoryUrl = category.path ? `${BASE_URL}${category.path}/` : `${BASE_URL}/`;
+                    const res = await http_get(categoryUrl, HEADERS);
                     if (!res || res.status < 200 || res.status >= 400) return;
                     const items = parseItems(await parseHtml(res.body));
                     if (items.length) home[category.name] = items;
@@ -78,9 +92,15 @@
             const page = await parseHtml(pageRes.body);
             const iframeUrl = fixUrl(page.querySelector(".responsive-player iframe")?.getAttribute("src") || "");
             if (!iframeUrl) return cb({ success: true, data: [] });
+            const cleanTubeUrl = await streamFromCleanTubePlayer(iframeUrl);
+            if (cleanTubeUrl) return cb({ success: true, data: [new StreamResult({
+                url: cleanTubeUrl,
+                source: "Pornmz",
+                headers: { "Referer": iframeUrl, "User-Agent": HEADERS["User-Agent"] }
+            })] });
             if (typeof loadExtractor === "function") {
                 try {
-                    const extracted = await loadExtractor(iframeUrl, url);
+                    const extracted = await loadExtractor(iframeUrl);
                     if (Array.isArray(extracted) && extracted.length) return cb({ success: true, data: extracted });
                 } catch (_) {}
             }

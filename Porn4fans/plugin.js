@@ -83,7 +83,7 @@
             if (!streamUrl) return cb({ success: true, data: [] });
             if (typeof loadExtractor === "function") {
                 try {
-                    const extracted = await loadExtractor(streamUrl, BASE_URL + "/");
+                    const extracted = await loadExtractor(streamUrl);
                     if (Array.isArray(extracted) && extracted.length) return cb({ success: true, data: extracted });
                 } catch (_) {}
             }
