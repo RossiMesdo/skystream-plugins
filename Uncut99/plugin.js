@@ -1,6 +1,7 @@
 (function () {
     const BASE_URL = manifest.baseUrl.replace(/\/$/, "");
     const HEADERS = { "User-Agent": "Mozilla/5.0", "Referer": BASE_URL + "/" };
+    const PLAYER_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
     const CATEGORIES = [
         { name: "Home", path: "/page/" },
         { name: "MMS", path: "/category/model-mms/page/" },
@@ -91,6 +92,25 @@
         const next = iframe?.getAttribute("data-litespeed-src") || iframe?.getAttribute("data-src") || iframe?.getAttribute("src") || "";
         return next ? resolvePage(absolute(next, url), url, depth + 1, visited) : [];
     }
+    async function resolveVidara(embedUrl) {
+        try {
+            const parsed = new URL(embedUrl);
+            if (!/vidara\./i.test(parsed.hostname)) return "";
+            const filecode = parsed.pathname.split("/").filter(Boolean).pop();
+            if (!filecode) return "";
+            const response = await http_post(`${parsed.origin}/api/stream`, {
+                ...HEADERS,
+                "User-Agent": PLAYER_UA,
+                "Content-Type": "application/json",
+                "Origin": parsed.origin,
+                "Referer": embedUrl
+            }, JSON.stringify({ filecode, device: "android", codecs: [] }));
+            const data = JSON.parse(response?.body || "{}");
+            return typeof data.streaming_url === "string" ? data.streaming_url : "";
+        } catch (_) {
+            return "";
+        }
+    }
     async function loadStreams(url, cb) {
         try {
             const res = await http_get(url, HEADERS);
@@ -100,6 +120,14 @@
             if (!embed) return cb({ success: true, data: [] });
             const embedUrl = absolute(embed, url);
             const streams = [];
+            const vidaraUrl = await resolveVidara(embedUrl);
+            if (vidaraUrl) {
+                return cb({ success: true, data: [new StreamResult({
+                    url: vidaraUrl,
+                    source: "Vidara",
+                    headers: { "Referer": embedUrl, "User-Agent": PLAYER_UA }
+                })] });
+            }
             if (typeof loadExtractor === "function") {
                 try {
                     const extracted = await loadExtractor(embedUrl);
