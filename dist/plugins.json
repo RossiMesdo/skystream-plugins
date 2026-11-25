@@ -1,5 +1,24 @@
 [
   {
+    "packageName": "dev.lord.123av",
+    "name": "123AV",
+    "version": 1,
+    "baseUrl": "https://123av.com",
+    "description": "123AV Japanese video provider",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "en",
+      "ja"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.123av.sky"
+  },
+  {
     "packageName": "dev.lord.18eu",
     "name": "18EU",
     "version": 4,
@@ -88,6 +107,42 @@
     ],
     "isAdult": true,
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.ngochoanggod.freepornvideos.sky"
+  },
+  {
+    "packageName": "dev.lord.heovl",
+    "name": "HeoVL",
+    "version": 1,
+    "baseUrl": "https://heovl.im",
+    "domains": [
+      {
+        "name": "heovl.im",
+        "url": "https://heovl.im"
+      },
+      {
+        "name": "heovl.tv",
+        "url": "https://heovl.tv"
+      },
+      {
+        "name": "heovl.fun",
+        "url": "https://heovl.fun"
+      },
+      {
+        "name": "heovl.cx",
+        "url": "https://heovl.cx"
+      }
+    ],
+    "description": "Vietnamese adult video provider",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "vi"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.heovl.sky"
   },
   {
     "packageName": "dev.lord.hotleak",
@@ -291,6 +346,38 @@
     ],
     "isAdult": true,
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.ngochoanggod.pornmz.sky"
+  },
+  {
+    "packageName": "dev.lord.rphang",
+    "name": "Rphang",
+    "version": 1,
+    "baseUrl": "https://rphang.fund",
+    "domains": [
+      {
+        "name": "rphang.fund",
+        "url": "https://rphang.fund"
+      },
+      {
+        "name": "rphang.vip",
+        "url": "https://rphang.vip"
+      },
+      {
+        "name": "rphang.net",
+        "url": "https://rphang.net"
+      }
+    ],
+    "description": "Rphang video forum",
+    "authors": [
+      "Lord"
+    ],
+    "languages": [
+      "vi"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.rphang.sky"
   },
   {
     "packageName": "dev.lord.rusporn",
