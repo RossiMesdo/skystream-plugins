@@ -81,6 +81,12 @@
         try {
             const streamUrl = fixUrl(url);
             if (!streamUrl) return cb({ success: true, data: [] });
+            if (typeof loadExtractor === "function") {
+                try {
+                    const extracted = await loadExtractor(streamUrl, BASE_URL + "/");
+                    if (Array.isArray(extracted) && extracted.length) return cb({ success: true, data: extracted });
+                } catch (_) {}
+            }
             cb({ success: true, data: [new StreamResult({ url: streamUrl, source: "Porn4fans", headers: HEADERS })] });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: String(e?.message || e) });

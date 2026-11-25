@@ -78,6 +78,12 @@
             const page = await parseHtml(pageRes.body);
             const iframeUrl = fixUrl(page.querySelector(".responsive-player iframe")?.getAttribute("src") || "");
             if (!iframeUrl) return cb({ success: true, data: [] });
+            if (typeof loadExtractor === "function") {
+                try {
+                    const extracted = await loadExtractor(iframeUrl, url);
+                    if (Array.isArray(extracted) && extracted.length) return cb({ success: true, data: extracted });
+                } catch (_) {}
+            }
             const embedRes = await http_get(iframeUrl, { ...HEADERS, "Referer": url });
             if (!embedRes || !embedRes.body) return cb({ success: true, data: [] });
             const embed = await parseHtml(embedRes.body);

@@ -90,7 +90,7 @@
         while ((match = pattern.exec(res.body)) !== null) direct.push(match[1].replace(/\\\//g, "/"));
         const streams = Array.from(new Set(direct.filter(value => /\.(?:m3u8|mp4)(?:[?#]|$)/i.test(value))));
         if (streams.length) return streams;
-        for (const frame of Array.from(doc.querySelectorAll("iframe[src], iframe[data-src], iframe[data-litespeed-src"))) {
+        for (const frame of Array.from(doc.querySelectorAll("iframe[src], iframe[data-src], iframe[data-litespeed-src]"))) {
             const next = frame.getAttribute("data-litespeed-src") || frame.getAttribute("data-src") || frame.getAttribute("src") || "";
             const nested = await resolveEmbed(absolute(next, url), url, depth + 1, visited);
             if (nested.length) return nested;
@@ -106,10 +106,25 @@
             const embed = iframe?.getAttribute("data-litespeed-src") || iframe?.getAttribute("src") || "";
             if (!embed) return cb({ success: true, data: [] });
             const embedUrl = absolute(embed, url);
+            const streams = [];
+            if (typeof loadExtractor === "function") {
+                try {
+                    const extracted = await loadExtractor(embedUrl, url);
+                    if (Array.isArray(extracted)) streams.push(...extracted);
+                } catch (_) {}
+            }
             const urls = await resolveEmbed(embedUrl, url, 0, new Set());
-            cb({ success: true, data: urls.map(streamUrl => new StreamResult({
+            urls.forEach(streamUrl => streams.push(new StreamResult({
                 url: streamUrl, source: "YesPornPlease", headers: { "Referer": embedUrl, "User-Agent": HEADERS["User-Agent"] }
-            })) });
+            })));
+            const unique = [];
+            const seen = new Set();
+            streams.forEach(stream => {
+                if (!stream?.url || seen.has(stream.url)) return;
+                seen.add(stream.url);
+                unique.push(stream);
+            });
+            cb({ success: true, data: unique });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: String(e?.message || e) });
         }

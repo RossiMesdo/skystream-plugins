@@ -1,7 +1,7 @@
 {
   "packageName": "dev.lord.internetchicks",
   "name": "InternetChicks",
-  "version": 1,
+  "version": 2,
   "baseUrl": "https://internetchicks.com",
   "description": "Browse and stream InternetChicks videos",
   "authors": ["LordFA"],

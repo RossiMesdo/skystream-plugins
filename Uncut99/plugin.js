@@ -98,11 +98,26 @@
             const doc = await parseHtml(res.body);
             const embed = doc.querySelector("meta[itemprop='embedURL']")?.getAttribute("content") || "";
             if (!embed) return cb({ success: true, data: [] });
-            const urls = await resolvePage(absolute(embed, url), url, 0, new Set());
-            const streams = urls.map(streamUrl => new StreamResult({
-                url: streamUrl, source: "Uncut99", headers: { "Referer": embed, "User-Agent": HEADERS["User-Agent"] }
-            }));
-            cb({ success: true, data: streams });
+            const embedUrl = absolute(embed, url);
+            const streams = [];
+            if (typeof loadExtractor === "function") {
+                try {
+                    const extracted = await loadExtractor(embedUrl, url);
+                    if (Array.isArray(extracted)) streams.push(...extracted);
+                } catch (_) {}
+            }
+            const urls = await resolvePage(embedUrl, url, 0, new Set());
+            urls.forEach(streamUrl => streams.push(new StreamResult({
+                url: streamUrl, source: "Uncut99", headers: { "Referer": embedUrl, "User-Agent": HEADERS["User-Agent"] }
+            })));
+            const unique = [];
+            const seen = new Set();
+            streams.forEach(stream => {
+                if (!stream?.url || seen.has(stream.url)) return;
+                seen.add(stream.url);
+                unique.push(stream);
+            });
+            cb({ success: true, data: unique });
         } catch (e) {
             cb({ success: false, errorCode: "STREAM_ERROR", message: String(e?.message || e) });
         }

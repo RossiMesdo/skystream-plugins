@@ -108,7 +108,14 @@
             const streams = [];
             const seen = new Set();
             for (const embed of Array.from(new Set(embeds))) {
-                const found = await resolveEmbed(embed, url, 0, new Set());
+                let found = [];
+                if (typeof loadExtractor === "function") {
+                    try {
+                        const extracted = await loadExtractor(embed, url);
+                        if (Array.isArray(extracted)) streams.push(...extracted);
+                    } catch (_) {}
+                }
+                found = await resolveEmbed(embed, url, 0, new Set());
                 for (const streamUrl of found) {
                     if (seen.has(streamUrl)) continue;
                     seen.add(streamUrl);
