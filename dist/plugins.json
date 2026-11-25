@@ -462,6 +462,30 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.uncut99.sky"
   },
   {
+    "packageName": "dev.codex.viet69",
+    "name": "Viet69",
+    "version": 2,
+    "baseUrl": "https://viet69.be",
+    "domains": [
+      {
+        "name": "viet69.be",
+        "url": "https://viet69.be"
+      }
+    ],
+    "description": "Vietnamese video provider",
+    "authors": [
+      "Codex"
+    ],
+    "languages": [
+      "vi"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.codex.viet69.sky"
+  },
+  {
     "packageName": "dev.lord.whoreshub",
     "name": "Whoreshub",
     "version": 1,
