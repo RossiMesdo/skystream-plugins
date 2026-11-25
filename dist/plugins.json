@@ -56,7 +56,7 @@
   {
     "packageName": "dev.lord.eporner",
     "name": "EPorner",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://www.eporner.com",
     "description": "EPorner - Free HD porn videos",
     "authors": [
@@ -128,9 +128,19 @@
   {
     "packageName": "dev.lord.javHD",
     "name": "JavHD",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://javhd.icu",
-    "description": "JAV HD video plugin",
+    "domains": [
+      {
+        "name": "javhd.icu",
+        "url": "https://javhd.icu"
+      },
+      {
+        "name": "javhd.today",
+        "url": "https://javhd.today"
+      }
+    ],
+    "description": "JAV HD video provider",
     "authors": [
       "Lord"
     ],
@@ -148,9 +158,9 @@
   {
     "packageName": "dev.lord.javtiful",
     "name": "Javtiful",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://javtiful.com",
-    "description": "Javtiful - JAV streaming site",
+    "description": "Javtiful video provider",
     "authors": [
       "Lord"
     ],
@@ -202,9 +212,19 @@
   {
     "packageName": "dev.lord.missav",
     "name": "MissAV",
-    "version": 4,
+    "version": 5,
     "baseUrl": "https://missav.live",
-    "description": "MissAV - Japanese Adult Video with subtitles",
+    "domains": [
+      {
+        "name": "missav.live",
+        "url": "https://missav.live"
+      },
+      {
+        "name": "missav.ws",
+        "url": "https://missav.ws"
+      }
+    ],
+    "description": "Japanese adult video with subtitles",
     "authors": [
       "Lord"
     ],
@@ -365,7 +385,7 @@
   {
     "packageName": "dev.lord.xhamster",
     "name": "xHamster",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://xhamster.com",
     "description": "xHamster - Adult video site",
     "authors": [
@@ -719,9 +739,19 @@
   {
     "packageName": "dev.lord.vlxx",
     "name": "Vlxx",
-    "version": 4,
-    "baseUrl": "https://vlxx.moi",
-    "description": "Vlxx - Phim sex Việt Nam",
+    "version": 5,
+    "baseUrl": "https://vlxx.sex",
+    "domains": [
+      {
+        "name": "vlxx.sex",
+        "url": "https://vlxx.sex"
+      },
+      {
+        "name": "vlxx.moi",
+        "url": "https://vlxx.moi"
+      }
+    ],
+    "description": "Vietnamese adult video provider",
     "authors": [
       "Lord"
     ],
@@ -773,9 +803,27 @@
   {
     "packageName": "dev.lord.xnhau",
     "name": "xNhau",
-    "version": 1,
-    "baseUrl": "https://xnhau.bio",
-    "description": "xNhau - Phim người lớn tiếng Việt",
+    "version": 2,
+    "baseUrl": "https://xnhau.meme",
+    "domains": [
+      {
+        "name": "xnhau.meme (current)",
+        "url": "https://xnhau.meme"
+      },
+      {
+        "name": "xnhau.com (redirect)",
+        "url": "https://xnhau.com"
+      },
+      {
+        "name": "xnhau.la (older domain)",
+        "url": "https://xnhau.la"
+      },
+      {
+        "name": "xnhau.bio (older domain)",
+        "url": "https://xnhau.bio"
+      }
+    ],
+    "description": "Vietnamese adult video provider",
     "authors": [
       "Lord"
     ],
@@ -791,7 +839,7 @@
   {
     "packageName": "dev.lord.xvideos",
     "name": "XVideos",
-    "version": 1,
+    "version": 2,
     "baseUrl": "https://www.xvideos.com",
     "description": "XVideos - Adult video streaming with full categories.",
     "authors": [
