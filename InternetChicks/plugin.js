@@ -108,14 +108,25 @@
             const streams = [];
             const seen = new Set();
             for (const embed of Array.from(new Set(embeds))) {
-                let found = [];
+                let extractorFound = false;
                 if (typeof loadExtractor === "function") {
                     try {
-                        const extracted = await loadExtractor(embed, url);
-                        if (Array.isArray(extracted)) streams.push(...extracted);
+                        // SkyStream's extractor registry accepts the embed URL.
+                        // Keep its playable result instead of also offering raw
+                        // URLs guessed from the host page to VLC.
+                        const extracted = await loadExtractor(embed);
+                        if (Array.isArray(extracted) && extracted.length) {
+                            for (const stream of extracted) {
+                                if (!stream || !stream.url || seen.has(stream.url)) continue;
+                                seen.add(stream.url);
+                                streams.push(stream);
+                            }
+                            extractorFound = true;
+                        }
                     } catch (_) {}
                 }
-                found = await resolveEmbed(embed, url, 0, new Set());
+                if (extractorFound) continue;
+                const found = await resolveEmbed(embed, url, 0, new Set());
                 for (const streamUrl of found) {
                     if (seen.has(streamUrl)) continue;
                     seen.add(streamUrl);
