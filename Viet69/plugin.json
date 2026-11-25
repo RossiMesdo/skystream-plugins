@@ -1,0 +1,23 @@
+{
+    "packageName":  "dev.codex.viet69",
+    "name":  "Viet69",
+    "version":  2,
+    "baseUrl":  "https://viet69.be",
+    "domains":  [
+                    {
+                        "name":  "viet69.be",
+                        "url":  "https://viet69.be"
+                    }
+                ],
+    "description":  "Vietnamese video provider",
+    "authors":  [
+                    "Codex"
+                ],
+    "languages":  [
+                      "vi"
+                  ],
+    "categories":  [
+                       "Movie"
+                   ],
+    "isAdult":  true
+}
