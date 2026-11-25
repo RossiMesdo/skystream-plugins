@@ -94,6 +94,24 @@
         }
         return [];
     }
+    function extractStreamTapeUrl(html, embedUrl) {
+        const assignment = /getElementById\(['"](?:robotlink|norobotlink|ideoolink)['"]\)\.innerHTML\s*=\s*(['"])(.*?)\1\s*\+\s*\(\s*(['"])(.*?)\3\s*\)((?:\.(?:substring|substr|slice)\(\d+(?:\s*,\s*\d+)?\))*)/gi;
+        let match;
+        while ((match = assignment.exec(html)) !== null) {
+            let suffix = match[4];
+            const operations = match[5].matchAll(/\.(substring|substr|slice)\((\d+)(?:\s*,\s*(\d+))?\)/g);
+            for (const operation of operations) {
+                const start = Number(operation[2]);
+                const end = operation[3] === undefined ? undefined : Number(operation[3]);
+                if (operation[1] === "slice") suffix = suffix.slice(start, end);
+                else if (operation[1] === "substr") suffix = suffix.substr(start, end);
+                else suffix = suffix.substring(start, end);
+            }
+            const candidate = absolute(match[2] + suffix, embedUrl).replace(/&amp;/g, "&");
+            if (/\/get_video\?id=/i.test(candidate)) return candidate;
+        }
+        return "";
+    }
     async function loadStreams(url, cb) {
         try {
             const res = await http_get(url, HEADERS);
@@ -126,7 +144,13 @@
                     } catch (_) {}
                 }
                 if (extractorFound) continue;
-                const found = await resolveEmbed(embed, url, 0, new Set());
+                let found = [];
+                if (/streamtape\./i.test(new URL(embed).hostname)) {
+                    const embedRes = await http_get(embed, { ...HEADERS, "Referer": url });
+                    const directUrl = embedRes?.body ? extractStreamTapeUrl(embedRes.body, embed) : "";
+                    if (directUrl) found.push(directUrl);
+                }
+                if (!found.length) found = await resolveEmbed(embed, url, 0, new Set());
                 for (const streamUrl of found) {
                     if (seen.has(streamUrl)) continue;
                     seen.add(streamUrl);
