@@ -56,7 +56,7 @@
   {
     "packageName": "dev.lord.eporner",
     "name": "EPorner",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://www.eporner.com",
     "description": "EPorner - Free HD porn videos",
     "authors": [
@@ -158,7 +158,7 @@
   {
     "packageName": "dev.lord.javtiful",
     "name": "Javtiful",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://javtiful.com",
     "description": "Javtiful video provider",
     "authors": [
@@ -212,8 +212,8 @@
   {
     "packageName": "dev.lord.missav",
     "name": "MissAV",
-    "version": 5,
-    "baseUrl": "https://missav.live",
+    "version": 6,
+    "baseUrl": "https://missav.ws",
     "domains": [
       {
         "name": "missav.live",
@@ -759,9 +759,13 @@
   {
     "packageName": "dev.lord.vlxx",
     "name": "Vlxx",
-    "version": 5,
-    "baseUrl": "https://vlxx.sex",
+    "version": 6,
+    "baseUrl": "https://vlxx.net",
     "domains": [
+      {
+        "name": "vlxx.net",
+        "url": "https://vlxx.net"
+      },
       {
         "name": "vlxx.sex",
         "url": "https://vlxx.sex"
@@ -823,23 +827,31 @@
   {
     "packageName": "dev.lord.xnhau",
     "name": "xNhau",
-    "version": 2,
-    "baseUrl": "https://xnhau.meme",
+    "version": 3,
+    "baseUrl": "https://xnhau.plus",
     "domains": [
       {
-        "name": "xnhau.meme (current)",
+        "name": "xnhau.plus (current)",
+        "url": "https://xnhau.plus"
+      },
+      {
+        "name": "xnhau.meme",
         "url": "https://xnhau.meme"
       },
       {
-        "name": "xnhau.com (redirect)",
+        "name": "xnhau.moda",
+        "url": "https://xnhau.moda"
+      },
+      {
+        "name": "xnhau.com",
         "url": "https://xnhau.com"
       },
       {
-        "name": "xnhau.la (older domain)",
+        "name": "xnhau.la",
         "url": "https://xnhau.la"
       },
       {
-        "name": "xnhau.bio (older domain)",
+        "name": "xnhau.bio",
         "url": "https://xnhau.bio"
       }
     ],
