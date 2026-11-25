@@ -1,14 +1,14 @@
 {
   "packageName": "dev.lord.missav",
   "name": "MissAV",
-  "version": 6,
+  "version": 7,
   "baseUrl": "https://missav.ws",
   "domains": [
     { "name": "missav.live", "url": "https://missav.live" },
     { "name": "missav.ws", "url": "https://missav.ws" }
   ],
   "description": "Japanese adult video with subtitles",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["ja", "en"],
   "categories": ["Movie"],
   "isAdult": true

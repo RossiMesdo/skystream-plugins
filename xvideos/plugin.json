@@ -1,10 +1,10 @@
 {
   "packageName": "dev.lord.xvideos",
   "name": "XVideos",
-  "version": 2,
+  "version": 3,
   "baseUrl": "https://www.xvideos.com",
   "description": "XVideos - Adult video streaming with full categories.",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["en"],
   "categories": ["NSFW"],
   "isAdult": true,

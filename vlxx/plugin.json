@@ -1,7 +1,7 @@
 {
   "packageName": "dev.lord.vlxx",
   "name": "Vlxx",
-  "version": 6,
+  "version": 7,
   "baseUrl": "https://vlxx.net",
   "domains": [
     { "name": "vlxx.net", "url": "https://vlxx.net" },
@@ -9,7 +9,7 @@
     { "name": "vlxx.moi", "url": "https://vlxx.moi" }
   ],
   "description": "Vietnamese adult video provider",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["vi"],
   "categories": ["NSFW"],
   "isAdult": true

@@ -1,14 +1,14 @@
 {
   "packageName": "dev.lord.javHD",
   "name": "JavHD",
-  "version": 2,
+  "version": 3,
   "baseUrl": "https://javhd.icu",
   "domains": [
     { "name": "javhd.icu", "url": "https://javhd.icu" },
     { "name": "javhd.today", "url": "https://javhd.today" }
   ],
   "description": "JAV HD video provider",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["en", "ja"],
   "categories": ["NSFW", "Movie", "TV"]
 }

@@ -1,14 +1,14 @@
 {
   "packageName": "dev.lord.uncut99",
   "name": "Uncut99",
-  "version": 4,
+  "version": 5,
   "baseUrl": "https://uncut99.me",
   "domains": [
     { "name": "uncut99.me", "url": "https://uncut99.me" },
     { "name": "uncut99.com", "url": "https://uncut99.com" }
   ],
   "description": "Browse and stream Uncut99 videos",
-  "authors": ["LordFA"],
+  "authors": ["Codex"],
   "languages": ["hi"],
   "categories": ["Movie"],
   "isAdult": true

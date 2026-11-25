@@ -1,7 +1,7 @@
 {
   "packageName": "dev.lord.xnhau",
   "name": "xNhau",
-  "version": 3,
+  "version": 4,
   "baseUrl": "https://xnhau.plus",
   "domains": [
     { "name": "xnhau.plus (current)", "url": "https://xnhau.plus" },
@@ -12,7 +12,7 @@
     { "name": "xnhau.bio", "url": "https://xnhau.bio" }
   ],
   "description": "Vietnamese adult video provider",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["vi"],
   "categories": ["Movie"],
   "isAdult": true

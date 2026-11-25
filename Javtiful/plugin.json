@@ -1,10 +1,10 @@
 {
   "packageName": "dev.lord.javtiful",
   "name": "Javtiful",
-  "version": 3,
+  "version": 4,
   "baseUrl": "https://javtiful.com",
   "description": "Javtiful video provider",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["en"],
   "categories": ["Movie"],
   "isAdult": true

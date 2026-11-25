@@ -1,7 +1,7 @@
 {
   "packageName": "dev.lord.heovl",
   "name": "HeoVL",
-  "version": 1,
+  "version": 2,
   "baseUrl": "https://heovl.im",
   "domains": [
     { "name": "heovl.im", "url": "https://heovl.im" },
@@ -10,7 +10,7 @@
     { "name": "heovl.cx", "url": "https://heovl.cx" }
   ],
   "description": "Vietnamese adult video provider",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["vi"],
   "categories": ["Movie"],
   "isAdult": true

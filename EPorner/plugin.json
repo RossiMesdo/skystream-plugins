@@ -1,10 +1,10 @@
 {
   "packageName": "dev.lord.eporner",
   "name": "EPorner",
-  "version": 3,
+  "version": 4,
   "baseUrl": "https://www.eporner.com",
   "description": "EPorner - Free HD porn videos",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["en"],
   "categories": ["Movie"],
   "isAdult": true

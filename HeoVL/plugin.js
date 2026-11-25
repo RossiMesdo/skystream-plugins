@@ -90,30 +90,29 @@
         try {
             const res = await http_get(url, HEADERS);
             if (!res?.body) return cb({ success: true, data: [] });
-            const sources = [];
+            const sourceUrls = [];
             const regex = /class=["'][^"']*set-player-source[^"']*["'][^>]*data-source=["']([^"']+)["']/gi;
             let match;
             while ((match = regex.exec(res.body)) !== null) {
-                const sourceUrl = match[1].replace(/&amp;/g, "&");
-                if (!sources.includes(sourceUrl)) sources.push(sourceUrl);
+                const sourceUrl = match[1].replace(/&amp;/g, '&');
+                if (!sourceUrls.includes(sourceUrl)) sourceUrls.push(sourceUrl);
             }
             const streams = [];
-            for (const sourceUrl of sources) {
-                if (typeof loadExtractor === "function") {
-                    const extracted = await loadExtractor(sourceUrl);
-                    if (Array.isArray(extracted) && extracted.length) {
-                        extracted.forEach(stream => { stream.source = "HeoVL"; streams.push(stream); });
-                        continue;
-                    }
-                }
-                streams.push(new StreamResult({ url: sourceUrl, source: "HeoVL Embed", headers: { ...HEADERS, Referer: url } }));
+            const seen = new Set();
+            for (const sourceUrl of sourceUrls) {
+                const id = sourceUrl.match(/\/videos\/([a-f0-9]{20,})\/play/i)?.[1];
+                if (!id || seen.has(id)) continue;
+                seen.add(id);
+                const streamUrl = `https://vcast.name/videos/${id}/master.m3u8`;
+                const playlist = await http_get(streamUrl, { ...HEADERS, Referer: 'https://vcast.name/' });
+                if (playlist?.status >= 400 || !(playlist?.body || '').trimStart().startsWith('#EXTM3U')) continue;
+                streams.push(new StreamResult({ url: streamUrl, source: 'HeoVL', quality: 'Auto', headers: { ...HEADERS, Referer: 'https://vcast.name/' } }));
             }
             cb({ success: true, data: streams });
         } catch (e) {
-            cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
+            cb({ success: false, errorCode: 'STREAM_ERROR', message: e.message });
         }
     }
-
     globalThis.getHome = getHome;
     globalThis.search = search;
     globalThis.load = load;

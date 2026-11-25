@@ -1,10 +1,10 @@
 {
   "packageName": "dev.lord.123av",
   "name": "123AV",
-  "version": 1,
+  "version": 2,
   "baseUrl": "https://123av.com",
   "description": "123AV Japanese video provider",
-  "authors": ["Lord"],
+  "authors": ["Codex"],
   "languages": ["en", "ja"],
   "categories": ["Movie"],
   "isAdult": true

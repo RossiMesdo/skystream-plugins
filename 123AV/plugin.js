@@ -93,30 +93,32 @@
         try {
             const res = await http_get(url, HEADERS);
             if (!res?.body) return cb({ success: true, data: [] });
-            // 123AV stores its playable /e/ embed URLs in a JSON string passed to player().
-            const normalized = res.body.replace(/\\u0022/g, '"').replace(/\\+\//g, "/");
+            const normalized = res.body.replace(/\\u0022/g, '"').replace(/\\+\//g, '/');
             const candidates = normalized.match(/https?:\/\/[^"'<>\s]+\/e\/[A-Za-z0-9]+(?:\?[^"'<>\s]*)?/g) || [];
             const streams = [];
             const seen = new Set();
             for (const candidate of candidates) {
-                const embedUrl = candidate.replace(/&amp;/g, "&").replace(/[),;]+$/, "");
-                if (seen.has(embedUrl)) continue;
-                seen.add(embedUrl);
-                if (typeof loadExtractor === "function") {
-                    const extracted = await loadExtractor(embedUrl);
-                    if (Array.isArray(extracted) && extracted.length) {
-                        extracted.forEach(stream => { stream.source = "123AV"; streams.push(stream); });
-                        continue;
-                    }
-                }
-                streams.push(new StreamResult({ url: embedUrl, source: "123AV Embed", headers: { ...HEADERS, Referer: url } }));
+                const embedUrl = candidate.replace(/&amp;/g, '&').replace(/[),;]+$/, '');
+                const id = embedUrl.match(/\/e\/([A-Za-z0-9]+)/i)?.[1];
+                if (!id || seen.has(id)) continue;
+                seen.add(id);
+                const apiUrl = `https://sadie-shop.site/stream?id=${encodeURIComponent(id)}`;
+                const apiRes = await http_get(apiUrl, {
+                    ...HEADERS,
+                    Referer: embedUrl,
+                    Origin: 'https://sadie-shop.site'
+                });
+                let payload;
+                try { payload = JSON.parse(apiRes?.body || ''); } catch (_) { continue; }
+                const mediaUrl = payload?.status === 'ok' ? payload?.media?.stream : '';
+                if (!mediaUrl || !/^https:\/\/.+\.m3u8(?:[?#]|$)/i.test(mediaUrl)) continue;
+                streams.push(new StreamResult({ url: mediaUrl, source: '123AV', quality: 'Auto', headers: { ...HEADERS, Referer: embedUrl } }));
             }
             cb({ success: true, data: streams });
         } catch (e) {
-            cb({ success: false, errorCode: "STREAM_ERROR", message: e.message });
+            cb({ success: false, errorCode: 'STREAM_ERROR', message: e.message });
         }
     }
-
     globalThis.getHome = getHome;
     globalThis.search = search;
     globalThis.load = load;
