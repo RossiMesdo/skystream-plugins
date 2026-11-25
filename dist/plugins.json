@@ -522,6 +522,30 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.xhamster.sky"
   },
   {
+    "packageName": "dev.codex.xnxx",
+    "name": "XNXX",
+    "version": 1,
+    "baseUrl": "https://www.xnxx.com",
+    "domains": [
+      {
+        "name": "www.xnxx.com",
+        "url": "https://www.xnxx.com"
+      }
+    ],
+    "description": "XNXX video provider",
+    "authors": [
+      "Codex"
+    ],
+    "languages": [
+      "en"
+    ],
+    "categories": [
+      "Movie"
+    ],
+    "isAdult": true,
+    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.codex.xnxx.sky"
+  },
+  {
     "packageName": "dev.lord.xxxparodyhd",
     "name": "XXXParodyHD",
     "version": 2,
