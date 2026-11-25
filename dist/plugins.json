@@ -110,7 +110,7 @@
   {
     "packageName": "dev.lord.internetchicks",
     "name": "InternetChicks",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://internetchicks.com",
     "description": "Browse and stream InternetChicks videos",
     "authors": [
