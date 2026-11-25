@@ -277,7 +277,7 @@
   {
     "packageName": "dev.ngochoanggod.pornmz",
     "name": "Pornmz",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://pornmz.com",
     "description": "Browse and stream Pornmz videos",
     "authors": [
@@ -349,8 +349,18 @@
   {
     "packageName": "dev.lord.uncut99",
     "name": "Uncut99",
-    "version": 2,
-    "baseUrl": "https://uncut99.com",
+    "version": 3,
+    "baseUrl": "https://uncut99.me",
+    "domains": [
+      {
+        "name": "uncut99.me",
+        "url": "https://uncut99.me"
+      },
+      {
+        "name": "uncut99.com",
+        "url": "https://uncut99.com"
+      }
+    ],
     "description": "Browse and stream Uncut99 videos",
     "authors": [
       "LordFA"
@@ -421,8 +431,18 @@
   {
     "packageName": "dev.ngochoanggod.xmaza",
     "name": "Xmaza",
-    "version": 1,
-    "baseUrl": "https://xmaza.net",
+    "version": 2,
+    "baseUrl": "https://xmaza.movie",
+    "domains": [
+      {
+        "name": "xmaza.movie",
+        "url": "https://xmaza.movie"
+      },
+      {
+        "name": "xmaza.net",
+        "url": "https://xmaza.net"
+      }
+    ],
     "description": "Browse and stream Xmaza videos",
     "authors": [
       "LordFA"
@@ -457,7 +477,7 @@
   {
     "packageName": "dev.lord.yespornplease",
     "name": "YesPornPlease",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://yespornpleasexxx.com",
     "description": "Browse and stream YesPornPlease videos",
     "authors": [
