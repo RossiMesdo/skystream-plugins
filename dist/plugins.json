@@ -183,7 +183,7 @@
   {
     "packageName": "dev.lord.javHD",
     "name": "JavHD",
-    "version": 3,
+    "version": 4,
     "baseUrl": "https://javhd.icu",
     "domains": [
       {
@@ -204,10 +204,9 @@
       "ja"
     ],
     "categories": [
-      "NSFW",
-      "Movie",
-      "TV"
+      "Movie"
     ],
+    "isAdult": true,
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javHD.sky"
   },
   {
@@ -464,7 +463,7 @@
   {
     "packageName": "dev.codex.viet69",
     "name": "Viet69",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://viet69.be",
     "domains": [
       {
