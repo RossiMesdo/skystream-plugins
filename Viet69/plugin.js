@@ -5,11 +5,11 @@
         "Referer": `${BASE_URL}/`
     };
     const CATEGORIES = [
-        { name: "M?i nh?t", path: "/" },
-        { name: "Sex Vi?t", path: "/category/sex-viet/" },
-        { name: "Sinh vi�n", path: "/category/sinh-vien/" },
+        { name: "Mới nhất", path: "/" },
+        { name: "Sex Việt", path: "/category/sex-viet/" },
+        { name: "Sinh viên", path: "/category/sinh-vien/" },
         { name: "Teen", path: "/category/teen/" },
-        { name: "Xem nhi?u", path: "/xem-nhieu/" }
+        { name: "Xem nhiều", path: "/xem-nhieu/" }
     ];
 
     function fixUrl(url) {
@@ -72,7 +72,7 @@
             const doc = await parseHtml(res.body);
             const title = doc.querySelector("h1")?.textContent?.trim()
                 || doc.querySelector("meta[property='og:title']")?.getAttribute("content")?.trim();
-            if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "Kh�ng t�m th?y ti�u d? video" });
+            if (!title) return cb({ success: false, errorCode: "PARSE_ERROR", message: "Không tìm thấy tiêu đề video" });
             const poster = doc.querySelector("meta[property='og:image']")?.getAttribute("content") || "";
             const description = doc.querySelector("meta[name='description']")?.getAttribute("content") || "";
             cb({ success: true, data: new MultimediaItem({

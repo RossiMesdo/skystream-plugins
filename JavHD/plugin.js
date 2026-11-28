@@ -41,7 +41,9 @@
             title: title,
             url: link,
             posterUrl: poster,
-            type: 'nsfw',
+            type: 'movie',
+            isAdult: true,
+            contentRating: '18+',
             headers: HEADERS
         });
     }
@@ -268,6 +270,7 @@
                 if (episodes.length) {
                     return cb({ success: true, data: new MultimediaItem({
                         title, url, posterUrl: poster, type: 'series',
+                        isAdult: true, contentRating: '18+',
                         description, year, tags, recommendations: recs,
                         episodes, headers: HEADERS
                     })});
@@ -295,6 +298,8 @@
                 url,
                 posterUrl: poster,
                 type: 'movie',
+                isAdult: true,
+                contentRating: '18+',
                 description,
                 year,
                 tags,

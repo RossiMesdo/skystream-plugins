@@ -1,7 +1,7 @@
 {
   "packageName": "dev.lord.javHD",
   "name": "JavHD",
-  "version": 3,
+  "version": 4,
   "baseUrl": "https://javhd.icu",
   "domains": [
     { "name": "javhd.icu", "url": "https://javhd.icu" },
@@ -10,5 +10,6 @@
   "description": "JAV HD video provider",
   "authors": ["Codex"],
   "languages": ["en", "ja"],
-  "categories": ["NSFW", "Movie", "TV"]
+  "categories": ["Movie"],
+  "isAdult": true
 }
