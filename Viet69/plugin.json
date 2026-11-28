@@ -1,7 +1,7 @@
 {
     "packageName":  "dev.codex.viet69",
     "name":  "Viet69",
-    "version":  3,
+    "version":  4,
     "baseUrl":  "https://viet69.be",
     "domains":  [
                     {
@@ -9,9 +9,10 @@
                         "url":  "https://viet69.be"
                     }
                 ],
-    "description":  "Vietnamese video provider",
+    "description":  "Vietnamese video provider (fix 2026-11-28)",
     "authors":  [
-                    "Codex"
+                    "Codex",
+                    "Claude-A"
                 ],
     "languages":  [
                       "vi"

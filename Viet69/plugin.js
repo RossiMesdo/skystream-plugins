@@ -115,8 +115,8 @@
         const bloggerUrl = playerData?.url;
         if (!bloggerUrl) return "";
         const blogger = await http_get(bloggerUrl, { ...HEADERS, "Referer": embedUrl });
-        const decoded = unescapeJson(blogger?.body || "");
-        return decoded.match(/https?:\/\/[^"'\s<>]+googlevideo\.com\/videoplayback\?[^"'\s<>]+/i)?.[0] || "";
+        const decoded = unescapeJson(blogger?.body || "").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'");
+        return decoded.match(/https?:\/\/[^\/"'\s<>\\]+\.googlevideo\.com\/videoplayback\?[^"'\s<>\\]+/i)?.[0] || "";
     }
 
     async function loadStreams(url, cb) {
