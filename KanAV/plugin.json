@@ -1,0 +1,11 @@
+{
+  "packageName": "dev.claudea.kanav",
+  "name": "KanAV",
+  "version": 1,
+  "baseUrl": "https://kanav.so",
+  "description": "KanAV Japanese and Chinese AV catalog (fix 2026-11-28)",
+  "authors": ["Claude-A"],
+  "languages": ["zh", "ja"],
+  "categories": ["Movie"],
+  "isAdult": true
+}
