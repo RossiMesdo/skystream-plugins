@@ -183,7 +183,7 @@
   {
     "packageName": "dev.lord.javHD",
     "name": "JavHD",
-    "version": 4,
+    "version": 5,
     "baseUrl": "https://javhd.icu",
     "domains": [
       {
@@ -195,9 +195,10 @@
         "url": "https://javhd.today"
       }
     ],
-    "description": "JAV HD video provider",
+    "description": "JAV HD video provider (fix 2026-11-28)",
     "authors": [
-      "Codex"
+      "Codex",
+      "Claude-A"
     ],
     "languages": [
       "en",
@@ -349,9 +350,13 @@
   {
     "packageName": "dev.lord.rphang",
     "name": "Rphang",
-    "version": 2,
-    "baseUrl": "https://rphang.fund",
+    "version": 3,
+    "baseUrl": "https://rphang.land",
     "domains": [
+      {
+        "name": "rphang.land",
+        "url": "https://rphang.land"
+      },
       {
         "name": "rphang.fund",
         "url": "https://rphang.fund"
@@ -365,9 +370,10 @@
         "url": "https://rphang.net"
       }
     ],
-    "description": "Rphang video forum",
+    "description": "Rphang video forum (fix 2026-11-28)",
     "authors": [
-      "Codex"
+      "Codex",
+      "Claude-A"
     ],
     "languages": [
       "vi"
