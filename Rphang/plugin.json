@@ -1,15 +1,16 @@
 {
   "packageName": "dev.lord.rphang",
   "name": "Rphang",
-  "version": 2,
-  "baseUrl": "https://rphang.fund",
+  "version": 3,
+  "baseUrl": "https://rphang.land",
   "domains": [
+    { "name": "rphang.land", "url": "https://rphang.land" },
     { "name": "rphang.fund", "url": "https://rphang.fund" },
     { "name": "rphang.vip", "url": "https://rphang.vip" },
     { "name": "rphang.net", "url": "https://rphang.net" }
   ],
-  "description": "Rphang video forum",
-  "authors": ["Codex"],
+  "description": "Rphang video forum (fix 2026-11-28)",
+  "authors": ["Codex", "Claude-A"],
   "languages": ["vi"],
   "categories": ["Movie"],
   "isAdult": true

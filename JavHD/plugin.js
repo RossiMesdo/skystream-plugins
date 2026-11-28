@@ -62,10 +62,14 @@
     function getVideoUrls(doc, rawHtml) {
         const links = new Set();
 
-        // 1. All iframes
-        doc.querySelectorAll('iframe').forEach(iframe => {
+        // Prefer the actual video player; pages also include unrelated ad iframes.
+        let playerFrames = doc.querySelectorAll('.player iframe[src], .player-wrap iframe[src], #jwplayer iframe[src], .video-player iframe[src]');
+        if (playerFrames.length === 0) {
+            playerFrames = doc.querySelectorAll('iframe[src]');
+        }
+        playerFrames.forEach(iframe => {
             const src = iframe.getAttribute('src');
-            if (src && !src.startsWith('https://a.realsrv.com')) links.add(src);
+            if (src && !/https?:\/\/(?:a\.realsrv\.com|tsyndicate\.com|a\.magsrv\.com)/i.test(src)) links.add(src);
         });
 
         // 2. Video / source tags
@@ -94,6 +98,43 @@
         });
 
         return Array.from(links).filter(l => l && l.startsWith('http'));
+    }
+
+    async function extractVidaraStream(embedUrl) {
+        const embed = new URL(embedUrl);
+        const filecode = embed.pathname.match(/^\/e\/([^/]+)\/?$/i)?.[1];
+        if (!filecode) return null;
+
+        const response = await http_post(new URL('/api/stream', embed.origin).href, {
+            ...HEADERS,
+            'Referer': embedUrl,
+            'Origin': embed.origin,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }, JSON.stringify({ filecode, device: 'web', codecs: [] }));
+        if (!response || response.status !== 200) {
+            throw new Error('Vidara stream API HTTP ' + (response ? response.status : '?'));
+        }
+
+        const data = JSON.parse(response.body || '{}');
+        const streamUrl = data?.streaming_url;
+        if (!streamUrl || !/^https?:\/\//i.test(streamUrl)) return null;
+
+        const subtitles = (Array.isArray(data.subtitles) ? data.subtitles : [])
+            .filter(subtitle => subtitle?.file_path)
+            .map(subtitle => ({
+                url: new URL(subtitle.file_path, embed.origin).href,
+                label: subtitle.language || 'Subtitle',
+                lang: subtitle.language || ''
+            }));
+
+        return new StreamResult({
+            url: streamUrl,
+            source: 'JavHD - Vidara',
+            quality: /\.m3u8(?:[?#]|$)/i.test(streamUrl) ? 'Auto' : undefined,
+            headers: { ...HEADERS, Referer: embedUrl },
+            subtitles: subtitles.length ? subtitles : undefined
+        });
     }
 
     async function getMenuCategories() {
@@ -261,6 +302,7 @@
                             episodes.push(new Episode({
                                 name: `Scene ${num}`,
                                 url: JSON.stringify(videoUrls),
+                                season: 1,
                                 episode: num,
                                 posterUrl: poster
                             }));
@@ -318,6 +360,12 @@
             const links = JSON.parse(dataUrl);
             const streams = [];
             for (let link of links) {
+                if (/^https?:\/\/(?:www\.)?vidara\.to\/e\//i.test(link)) {
+                    const stream = await extractVidaraStream(link);
+                    if (stream) streams.push(stream);
+                    continue;
+                }
+
                 if (link.startsWith('https://javhdfree.icu')) {
                     const noProto = link.replace('https://', '');
                     const idx = noProto.indexOf('/') + 1;

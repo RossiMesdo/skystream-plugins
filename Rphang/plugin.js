@@ -8,8 +8,7 @@
     function fixUrl(url) {
         if (!url) return "";
         if (url.startsWith("//")) return `https:${url}`;
-        if (url.startsWith("/")) return BASE_URL + url;
-        return url;
+        return new URL(url, BASE_URL).href;
     }
 
     function parseThreads(doc) {
@@ -80,32 +79,37 @@
             const doc = await parseHtml(res.body);
             const streams = [];
             const direct = new Set();
-            doc.querySelectorAll("video source[src], video[src]").forEach(node => {
-                const src = fixUrl(node.getAttribute("src"));
-                if (!src || direct.has(src)) return;
-                direct.add(src);
-                streams.push(new StreamResult({ url: src, source: "Rphang Video", headers: { ...HEADERS, Referer: url } }));
+            const postBodies = doc.querySelectorAll(".message-body .bbWrapper, .message-content .bbWrapper");
+            postBodies.forEach(body => {
+                body.querySelectorAll("video source[src], video[src]").forEach(node => {
+                    const src = fixUrl(node.getAttribute("src"));
+                    if (!src || direct.has(src)) return;
+                    direct.add(src);
+                    streams.push(new StreamResult({ url: src, source: "Rphang Video", headers: { ...HEADERS, Referer: url } }));
+                });
             });
-            for (const node of Array.from(doc.querySelectorAll("iframe[src]"))) {
-                const src = fixUrl(node.getAttribute("src"));
-                if (!src || direct.has(src)) continue;
-                direct.add(src);
-                if (typeof loadExtractor === "function") {
-                    const extracted = await loadExtractor(src);
-                    if (Array.isArray(extracted)) extracted.forEach(stream => {
-                        stream.source = "Rphang";
-                        streams.push(stream);
-                    });
+            for (const body of Array.from(postBodies)) {
+                for (const node of Array.from(body.querySelectorAll("iframe[src]"))) {
+                    const src = fixUrl(node.getAttribute("src"));
+                    if (!src || direct.has(src)) continue;
+                    direct.add(src);
+                    if (typeof loadExtractor === "function") {
+                        const extracted = await loadExtractor(src);
+                        if (Array.isArray(extracted)) extracted.forEach(stream => {
+                            stream.source = "Rphang";
+                            streams.push(stream);
+                        });
+                    }
                 }
-            }
-            // XenForo serves uploaded clips as signed MP4 attachment URLs.
-            const sourceRegex = /(?:src|href)=["']([^"']*\/data\/attachment-files\/[^"']+\.mp4(?:\?[^"']*)?)["']/gi;
-            let match;
-            while ((match = sourceRegex.exec(res.body)) !== null) {
-                const src = fixUrl(match[1].replace(/&amp;/g, "&"));
-                if (direct.has(src)) continue;
-                direct.add(src);
-                streams.push(new StreamResult({ url: src, source: "Rphang MP4", headers: { ...HEADERS, Referer: url } }));
+                body.querySelectorAll("a[href]").forEach(link => {
+                    const href = link.getAttribute("href") || "";
+                    if (!/\/(?:attachments|data\/attachments|data\/attachment-files)\//i.test(href)
+                        || !/\.(?:mp4|m3u8|webm|m4v|mov)(?:[./?#]|$)/i.test(href)) return;
+                    const src = fixUrl(href);
+                    if (!src || direct.has(src)) return;
+                    direct.add(src);
+                    streams.push(new StreamResult({ url: src, source: "Rphang MP4", headers: { ...HEADERS, Referer: url } }));
+                });
             }
             cb({ success: true, data: streams });
         } catch (e) {

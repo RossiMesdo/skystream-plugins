@@ -1,14 +1,14 @@
 {
   "packageName": "dev.lord.javHD",
   "name": "JavHD",
-  "version": 4,
+  "version": 5,
   "baseUrl": "https://javhd.icu",
   "domains": [
     { "name": "javhd.icu", "url": "https://javhd.icu" },
     { "name": "javhd.today", "url": "https://javhd.today" }
   ],
-  "description": "JAV HD video provider",
-  "authors": ["Codex"],
+  "description": "JAV HD video provider (fix 2026-11-28)",
+  "authors": ["Codex", "Claude-A"],
   "languages": ["en", "ja"],
   "categories": ["Movie"],
   "isAdult": true
