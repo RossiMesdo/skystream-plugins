@@ -1,5 +1,5 @@
 (function () {
-    // manifest.baseUrl is injected at runtime (default: https://yanhh3d.ee)
+    // manifest.baseUrl is injected at runtime (default: https://yanhh3d.ee); see "Domain handling" below
 
     const HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -8,8 +8,64 @@
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
+    // ─── Domain handling ───────────────────────────────────────────────────────
+    // The site changes its domain often. The domain used is, in this order:
+    //   1. the first non-empty, non-"#" line of yanhh3d/domain.txt in the GitHub repo
+    //      (edit that file when the site moves - no plugin update needed),
+    //   2. manifest.baseUrl (the default / the domain chosen in the app).
+    const DOMAIN_FILE_URL = "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/yanhh3d/domain.txt";
+    const DOMAIN_TTL_MS = 10 * 60 * 1000;
+    const DEFAULT_BASE = "https://yanhh3d.ee";
+    let resolvedBase = null;
+    let resolvedAt = 0;
+
+    function cleanBase(value) {
+        const v = String(value || "").trim().replace(/\/+$/, "");
+        return /^https?:\/\/[^\s\/]+$/i.test(v) ? v : "";
+    }
+
     function getBaseUrl() {
-        return (manifest.baseUrl || "https://yanhh3d.ee").replace(/\/$/, "");
+        return resolvedBase || cleanBase(manifest.baseUrl) || DEFAULT_BASE;
+    }
+
+    async function ensureBase() {
+        if (resolvedBase && Date.now() - resolvedAt < DOMAIN_TTL_MS) return resolvedBase;
+        let override = "";
+        try {
+            const res = await http_get(DOMAIN_FILE_URL + "?t=" + Date.now(), { "User-Agent": HEADERS["User-Agent"] });
+            if (res && res.status === 200) {
+                const line = String(res.body || "").split(/\r?\n/).map(l => l.trim()).find(l => l && !l.startsWith("#"));
+                override = cleanBase(line);
+            }
+        } catch (_) {}
+        resolvedBase = override || cleanBase(manifest.baseUrl) || DEFAULT_BASE;
+        resolvedAt = Date.now();
+        HEADERS["Referer"] = resolvedBase + "/";
+        return resolvedBase;
+    }
+
+    // Host of the current domain, escaped for use inside a RegExp
+    function hostPattern() {
+        return getBaseUrl().replace(/^https?:\/\//i, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    // Re-build a regex written for yanhh3d.ee so that it matches the current domain
+    function reWithHost(re) {
+        return new RegExp(re.source.replace("yanhh3d\\.ee", () => hostPattern()), re.flags);
+    }
+
+    function pathOf(url) {
+        return String(url).replace(/^https?:\/\/[^\/]+/i, "");
+    }
+
+    // Links to site pages (not to a show): tested on the PATH only, never on the domain
+    function isNonShowPath(path) {
+        return /\/(yanhh3d|lich-chieu|lich-su|top-|moi-cap-nhat|hoan-thanh|tu-tien$|kiem-hiep$|co-trang$|hien-dai$|do-thi$|trung-sinh$|hai-huoc$|tien-hiep$|xuyen-khong$)/.test(path);
+    }
+
+    // URLs saved from an older domain: move them to the current domain
+    function rebase(url) {
+        return String(url).replace(/^https?:\/\/[^\/]+/i, getBaseUrl());
     }
 
     async function fetchHtml(url) {
@@ -81,7 +137,7 @@
     // Parse genres from links
     function parseGenres(html) {
         const genres = [];
-        const pattern = /href="https?:\/\/yanhh3d\.ee\/([a-z-]+)"[^>]*>([^<]+)<\/a>/gi;
+        const pattern = reWithHost(/href="https?:\/\/yanhh3d\.ee\/([a-z-]+)"[^>]*>([^<]+)<\/a>/gi);
         const genreMap = {
             "tu-tien": "Tu Tiên", "kiem-hiep": "Kiếm Hiệp", "co-trang": "Cổ Trang",
             "hien-dai": "Hiện Đại", "do-thi": "Đô Thị", "trung-sinh": "Trùng Sinh",
@@ -140,6 +196,7 @@
 
     async function getHome(cb) {
         try {
+            await ensureBase();
             const base = getBaseUrl();
             const [mainHtml, newHtml, topHtml] = await Promise.all([
                 fetchHtml(base + "/").catch(() => ""),
@@ -153,7 +210,7 @@
             function parseItems(html) {
                 const items = [];
                 // Pattern: article or div with link + img + title
-                const cardPattern = /<a[^>]+href="(https?:\/\/yanhh3d\.ee\/[a-z-]+\/[^/"]+)"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"[^>]*>[\s\S]*?(?:<h[23][^>]*>([^<]+)<\/h[23]>|<p[^>]+class="[^"]*title[^"]*"[^>]*>([^<]+)<\/p>)/gi;
+                const cardPattern = reWithHost(/<a[^>]+href="(https?:\/\/yanhh3d\.ee\/[a-z-]+\/[^/"]+)"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"[^>]*>[\s\S]*?(?:<h[23][^>]*>([^<]+)<\/h[23]>|<p[^>]+class="[^"]*title[^"]*"[^>]*>([^<]+)<\/p>)/gi);
                 let m;
                 while ((m = cardPattern.exec(html)) !== null) {
                     const url = m[1];
@@ -161,7 +218,7 @@
                     const title = (m[3] || m[4] || "").replace(/\n/g, "").trim();
                     if (!title || !url) continue;
                     // Skip non-show URLs
-                    if (/\/(yanhh3d|lich-chieu|lich-su|top-|moi-cap-nhat|hoan-thanh|tu-tien$|kiem-hiep$|co-trang$|hien-dai$)/.test(url)) continue;
+                    if (isNonShowPath(pathOf(url))) continue;
                     items.push(new MultimediaItem({
                         title,
                         url,
@@ -217,13 +274,14 @@
 
     async function search(query, cb) {
         try {
+            await ensureBase();
             const base = getBaseUrl();
             // WordPress search: /?s=query
             const searchUrl = base + "/?s=" + encodeURIComponent(query);
             const html = await fetchHtml(searchUrl);
 
             const items = [];
-            const cardPattern = /<a[^>]+href="(https?:\/\/yanhh3d\.ee\/[a-z-]+\/[^/"]+)"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"[^>]*>[\s\S]*?<(?:h[23]|p)[^>]*>([^<]+)<\/(?:h[23]|p)>/gi;
+            const cardPattern = reWithHost(/<a[^>]+href="(https?:\/\/yanhh3d\.ee\/[a-z-]+\/[^/"]+)"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"[^>]*>[\s\S]*?<(?:h[23]|p)[^>]*>([^<]+)<\/(?:h[23]|p)>/gi);
             const seen = new Set();
             let m;
             while ((m = cardPattern.exec(html)) !== null) {
@@ -231,7 +289,7 @@
                 const poster = m[2];
                 const title = m[3].replace(/\n/g, "").trim();
                 if (!title || !url || seen.has(url)) continue;
-                if (/\/(yanhh3d|lich-|top-|moi-|hoan-|tu-tien$|kiem-|co-trang$|hien-|do-thi$|trung-|hai-|tien-hiep$|xuyen-)/.test(url)) continue;
+                if (isNonShowPath(pathOf(url))) continue;
                 seen.add(url);
                 items.push(new MultimediaItem({
                     title,
@@ -251,6 +309,8 @@
 
     async function load(url, cb) {
         try {
+            await ensureBase();
+            url = rebase(url);
             const html = await fetchHtml(url);
 
             // Title
@@ -307,6 +367,8 @@
 
     async function loadStreams(url, cb) {
         try {
+            await ensureBase();
+            url = rebase(url);
             const html = await fetchHtml(url);
             const streams = [];
 

@@ -1,0 +1,5 @@
+# YanHH3D: tên miền hiện tại của site.
+# Khi site đổi tên miền, thay dòng bên dưới bằng domain mới (vd: https://yanhh3d.xyz), rồi commit.
+# Plugin tự đọc file này (có thể chậm vài phút), không cần cập nhật plugin hay sửa code.
+# Dòng bắt đầu bằng # là ghi chú. Để trống phần domain = dùng domain mặc định trong plugin.json.
+https://yanhh3d.ee
