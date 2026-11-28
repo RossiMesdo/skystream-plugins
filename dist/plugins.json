@@ -661,43 +661,6 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.beeg.sky"
   },
   {
-    "packageName": "dev.akash.stars.4khd",
-    "name": "4K HD",
-    "version": 7,
-    "baseUrl": "https://4khdhub.link",
-    "description": "4K Movies and TV Shows (VOD)",
-    "authors": [
-      "phisher"
-    ],
-    "languages": [
-      "en"
-    ],
-    "categories": [
-      "Movie",
-      "TvSeries"
-    ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.4khd.sky"
-  },
-  {
-    "packageName": "dev.akash.stars.hdhub4u",
-    "name": "HDHub4U",
-    "version": 7,
-    "baseUrl": "https://new1.hdhub4u.limo",
-    "description": "Bollywood, Hollywood and Hindi Dubbed Movies & Web Series",
-    "authors": [
-      "phisher",
-      "Akash"
-    ],
-    "languages": [
-      "hi"
-    ],
-    "categories": [
-      "Movie",
-      "TvSeries"
-    ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.hdhub4u.sky"
-  },
-  {
     "packageName": "dev.lord.javseen",
     "name": "Javseen",
     "version": 1,
@@ -714,43 +677,6 @@
       "NSFW"
     ],
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.javseen.sky"
-  },
-  {
-    "packageName": "dev.akash.stars.moviesdrive",
-    "name": "Movies Drive",
-    "version": 3,
-    "baseUrl": "https://new1.moviesdrives.my",
-    "description": "Premium VOD Scraper with metadata sync",
-    "authors": [
-      "Akash"
-    ],
-    "languages": [
-      "en",
-      "hi"
-    ],
-    "categories": [
-      "Movie",
-      "TvSeries"
-    ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.moviesdrive.sky"
-  },
-  {
-    "packageName": "dev.akash.stars.ringz",
-    "name": "RingZ",
-    "version": 1,
-    "baseUrl": "https://dataapi.yomoviesapk.com",
-    "description": "RingZ Movies & Series Provider",
-    "authors": [
-      "Akash"
-    ],
-    "languages": [
-      "hi"
-    ],
-    "categories": [
-      "Movie",
-      "TvSeries"
-    ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.ringz.sky"
   },
   {
     "packageName": "dev.lord.vlxx",
