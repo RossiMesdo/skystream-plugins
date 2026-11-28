@@ -627,25 +627,6 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.yespornplease.sky"
   },
   {
-    "packageName": "dev.akash.stars.animedekho",
-    "name": "Anime Dekho",
-    "version": 1,
-    "baseUrl": "https://animedekho.app",
-    "description": "Anime Dekho plugin for SkyStream - Ported from CloudStream",
-    "authors": [
-      "Akash"
-    ],
-    "languages": [
-      "hi",
-      "jp",
-      "en"
-    ],
-    "categories": [
-      "Anime"
-    ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.animedekho.sky"
-  },
-  {
     "packageName": "dev.lord.aznude",
     "name": "aznude",
     "version": 1,
@@ -678,25 +659,6 @@
       "Movie"
     ],
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.lord.beeg.sky"
-  },
-  {
-    "packageName": "dev.akash.stars.bollyflix",
-    "name": "BollyFlix",
-    "version": 1,
-    "baseUrl": "https://bollyflix.sarl",
-    "description": "BDIX TV Live Channels",
-    "authors": [
-      "Akash"
-    ],
-    "languages": [
-      "hi"
-    ],
-    "categories": [
-      "Movie",
-      "TvSeries",
-      "Anime"
-    ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.bollyflix.sky"
   },
   {
     "packageName": "dev.akash.stars.4khd",
