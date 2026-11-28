@@ -753,24 +753,6 @@
     "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.ringz.sky"
   },
   {
-    "packageName": "dev.akash.stars.streamflix",
-    "name": "StreamFlix 2.0",
-    "version": 4,
-    "baseUrl": "https://api.streamflix.app",
-    "description": "StreamFlix Provider",
-    "authors": [
-      "Akash"
-    ],
-    "languages": [
-      "ta"
-    ],
-    "categories": [
-      "Movie",
-      "TvSeries"
-    ],
-    "url": "https://raw.githubusercontent.com/RossiMesdo/skystream-plugins/main/dist/dev.akash.stars.streamflix.sky"
-  },
-  {
     "packageName": "dev.lord.vlxx",
     "name": "Vlxx",
     "version": 7,
